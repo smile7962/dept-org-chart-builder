@@ -357,7 +357,7 @@
     padding: 12px 14px;
     position: relative;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: flex-start;
     gap: 14px;
     text-align: left;
@@ -421,7 +421,6 @@
     margin-top: 7px;
     display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-start;
   }
-  .dong-break { flex-basis: 100%; height: 0; }   /* 4글자 이상 동지역을 아랫줄로 */
   .dong-tag {
     font-size: 10px;
     background: var(--paper-2);
@@ -737,10 +736,11 @@ function last4(phone) {
 function dongTags(dong, color) {
   if (!Array.isArray(dong) || !dong.length) return '';
   const tag = d => `<span class="dong-tag" style="border-color:${color};color:${color};">${esc(d)}</span>`;
+  // 3글자 이하를 먼저, 4글자 이상을 뒤에 두고 자연스럽게 이어 배치
+  // (첫 4글자는 3글자 옆에 이어지고, 넘치는 4글자는 다음 줄로 흐름)
   const short = dong.filter(d => d.length <= 3);
   const long = dong.filter(d => d.length >= 4);
-  const brk = (short.length && long.length) ? '<span class="dong-break"></span>' : '';
-  return `<div class="p-dong">${short.map(tag).join('')}${brk}${long.map(tag).join('')}</div>`;
+  return `<div class="p-dong">${short.concat(long).map(tag).join('')}</div>`;
 }
 
 // ===== 과장 (head) =====
