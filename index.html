@@ -289,8 +289,10 @@
   }
   .teams-row {
     display: flex;
+    flex-wrap: wrap;
     justify-content: center;
     gap: 0;
+    row-gap: 36px;
     position: relative;
     margin-top: 0;
   }
@@ -631,13 +633,32 @@ function updateRoleFieldVisibility() {
 $('pRole').addEventListener('change', updateRoleFieldVisibility);
 updateRoleFieldVisibility();
 
+// 업로드 이미지를 정사각 축소 후 JPEG로 압축 (저장/JSON 용량 절감)
+function resizePhoto(dataUrl, maxSize) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      try { resolve(canvas.toDataURL('image/jpeg', 0.85)); }
+      catch (e) { resolve(dataUrl); }
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
 $('photoFile').addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = (ev) => {
-    currentPhoto = ev.target.result;
-    $('photoPreview').style.backgroundImage = `url(${currentPhoto})`;
+  reader.onload = async (ev) => {
+    currentPhoto = await resizePhoto(ev.target.result, 256);
+    $('photoPreview').style.backgroundImage = `url('${currentPhoto}')`;
   };
   reader.readAsDataURL(file);
 });
@@ -714,7 +735,7 @@ function editPerson(id) {
   $('pPhone').value = p.phone;
   $('pDong').value = p.dong.join(', ');
   currentPhoto = p.photo;
-  $('photoPreview').style.backgroundImage = p.photo ? `url(${p.photo})` : '';
+  $('photoPreview').style.backgroundImage = p.photo ? `url('${p.photo}')` : '';
   $('saveBtn').textContent = '✓ 수정 완료';
   $('cancelEditBtn').style.display = 'block';
   updateRoleFieldVisibility();
@@ -777,10 +798,10 @@ function renderPersonList() {
         <div class="rl">${esc(p.role)}${p.team ? ' · ' + esc(p.team) : ''}</div>
       </div>
       <div class="row-actions">
-        <button onclick="movePerson(${p.id}, -1)" title="위로" ${i === 0 ? 'disabled' : ''}>▲</button>
-        <button onclick="movePerson(${p.id}, 1)" title="아래로" ${i === people.length - 1 ? 'disabled' : ''}>▼</button>
-        <button onclick="editPerson(${p.id})" title="수정">✎</button>
-        <button onclick="deletePerson(${p.id})" title="${isPending ? '한번 더 누르면 삭제' : '삭제'}" class="${isPending ? 'delete-confirm-btn' : ''}">${isPending ? '삭제확인' : '✕'}</button>
+        <button onclick="movePerson(${p.id}, -1)" title="위로" aria-label="${esc(p.name)} 위로 이동" ${i === 0 ? 'disabled' : ''}>▲</button>
+        <button onclick="movePerson(${p.id}, 1)" title="아래로" aria-label="${esc(p.name)} 아래로 이동" ${i === people.length - 1 ? 'disabled' : ''}>▼</button>
+        <button onclick="editPerson(${p.id})" title="수정" aria-label="${esc(p.name)} 수정">✎</button>
+        <button onclick="deletePerson(${p.id})" title="${isPending ? '한번 더 누르면 삭제' : '삭제'}" aria-label="${esc(p.name)} 삭제" class="${isPending ? 'delete-confirm-btn' : ''}">${isPending ? '삭제확인' : '✕'}</button>
       </div>`;
     wrap.appendChild(row);
   });
