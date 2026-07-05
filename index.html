@@ -360,7 +360,7 @@
     flex-direction: column;
     text-align: left;
   }
-  .card-row { display: flex; align-items: flex-start; justify-content: center; gap: 14px; }
+  .card-row { display: flex; align-items: flex-start; justify-content: flex-start; gap: 14px; }
   .card-info { min-width: 0; }
   .card-head {
     width: 340px;
@@ -419,8 +419,10 @@
   .p-phone::before { content: '☎ '; color: var(--muted); }
   .p-dong {
     margin-top: 7px;
-    display: flex; flex-wrap: wrap; gap: 4px; justify-content: center;
+    display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-start;
   }
+  /* 특정 카드(예: 우인욱)만 사진·내용·동지역 가운데 정렬 유지 */
+  .card-centered .card-row, .card-centered .p-dong { justify-content: center; }
   .dong-tag {
     font-size: 10px;
     background: transparent;
@@ -1085,7 +1087,7 @@ function renderChart() {
         mem.forEach(m => {
           html += `<div class="lead-connector" style="background:${color};"></div>`;
           html += `
-            <div class="card-person card-member" style="border-left:3px solid ${color};">
+            <div class="card-person card-member${m.name === '우인욱' ? ' card-centered' : ''}" style="border-left:3px solid ${color};">
               <div class="card-row">
                 <div class="avatar" ${avatarStyle(m.photo)}></div>
                 <div class="card-info">
