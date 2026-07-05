@@ -225,6 +225,8 @@
     background: none; border: none; color: #8f97a3; cursor: pointer; font-size: 12px; padding: 2px 4px;
   }
   .row-actions button:hover { color: #e8e6df; }
+  .row-actions button:disabled { opacity: 0.25; cursor: default; }
+  .row-actions button:disabled:hover { color: #8f97a3; }
 
   .export-bar { display: flex; gap: 8px; }
   .export-bar .btn-secondary { margin-top: 0; }
@@ -502,6 +504,7 @@
 
     <div class="list-title">현재 구성원 (<span id="countLabel">0</span>명)</div>
     <div id="personList"></div>
+    <button class="btn-secondary" id="resetAllBtn">🗑 전체 구성원 초기화</button>
 
     <hr class="divider">
 
@@ -582,6 +585,17 @@ function resetForm() {
 }
 
 $('cancelEditBtn').addEventListener('click', resetForm);
+
+$('resetAllBtn').addEventListener('click', () => {
+  if (people.length === 0) { showToast('삭제할 구성원이 없습니다.', true); return; }
+  if (!confirm(`전체 구성원 ${people.length}명을 모두 삭제할까요?\n되돌릴 수 없습니다.`)) return;
+  people = [];
+  pendingDeleteId = null;
+  clearTimeout(pendingDeleteTimer);
+  resetForm();
+  render();
+  showToast('전체 구성원이 초기화되었습니다.');
+});
 
 function showToast(message, danger) {
   const toast = $('toast');
@@ -664,11 +678,21 @@ function deletePerson(id) {
   }, 3000);
 }
 
+function movePerson(id, dir) {
+  const idx = people.findIndex(p => p.id === id);
+  if (idx === -1) return;
+  const target = idx + dir;
+  if (target < 0 || target >= people.length) return;
+  [people[idx], people[target]] = [people[target], people[idx]];
+  if (pendingDeleteId !== null) { pendingDeleteId = null; clearTimeout(pendingDeleteTimer); }
+  render();
+}
+
 function renderPersonList() {
   const wrap = $('personList');
   wrap.innerHTML = '';
   $('countLabel').textContent = people.length;
-  people.forEach(p => {
+  people.forEach((p, i) => {
     const row = document.createElement('div');
     row.className = 'person-row';
     const isPending = pendingDeleteId === p.id;
@@ -679,6 +703,8 @@ function renderPersonList() {
         <div class="rl">${p.role}${p.team ? ' · ' + p.team : ''}</div>
       </div>
       <div class="row-actions">
+        <button onclick="movePerson(${p.id}, -1)" title="위로" ${i === 0 ? 'disabled' : ''}>▲</button>
+        <button onclick="movePerson(${p.id}, 1)" title="아래로" ${i === people.length - 1 ? 'disabled' : ''}>▼</button>
         <button onclick="editPerson(${p.id})" title="수정">✎</button>
         <button onclick="deletePerson(${p.id})" title="${isPending ? '한번 더 누르면 삭제' : '삭제'}" class="${isPending ? 'delete-confirm-btn' : ''}">${isPending ? '삭제확인' : '✕'}</button>
       </div>`;
