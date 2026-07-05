@@ -271,13 +271,8 @@
     font-size: 26px;
     font-weight: 800;
     color: var(--navy);
-    margin: 4px 0 2px;
+    margin: 4px 0 34px;
     letter-spacing: -0.01em;
-  }
-  .chart-updated {
-    font-size: 11.5px;
-    color: var(--muted);
-    margin-bottom: 34px;
   }
 
   .head-row { display: flex; justify-content: center; margin-bottom: 6px; }
@@ -540,7 +535,6 @@
       <div class="chart-header">
         <div class="chart-eyebrow">Paju City Hall · Organization Chart</div>
         <div class="chart-dept-name" id="chartDeptName">허가3과</div>
-        <div class="chart-updated" id="chartUpdated">최종 수정: -</div>
       </div>
       <div id="chartBody"></div>
       <div class="footer-strip">
@@ -823,8 +817,6 @@ function avatarStyle(photo, extra) {
 function renderChart() {
   const deptName = $('deptName').value.trim() || '과 이름 미입력';
   $('chartDeptName').textContent = deptName;
-  const now = new Date();
-  $('chartUpdated').textContent = `최종 수정: ${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')}`;
   $('chartMeta').textContent = `총 인원 ${people.length}명`;
 
   const head = people.find(p => p.role === '과장');
