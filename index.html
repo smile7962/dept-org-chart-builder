@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>과 조직도 자동생성기</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  @font-face {
+    font-family: 'Pretendard';
+    src: local('Pretendard');
+  }
+  * { box-sizing: border-box; }
+  :root{
+    --navy: #14243f;
+    --navy-2: #1f3a5f;
+    --paper: #f5f3ee;
+    --paper-2: #eceae2;
+    --line: #d8d3c6;
+    --gold: #b8934a;
+    --ink: #21262c;
+    --muted: #6b7178;
+    --card: #ffffff;
+    --danger: #a33c3c;
+    --radius: 4px;
+  }
+  body {
+    margin: 0;
+    font-family: 'Pretendard', -apple-system, 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  .app {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    min-height: 100vh;
+  }
+  @media (max-width: 900px) {
+    .app { grid-template-columns: 1fr; }
+  }
+
+  /* ===== 좌측 패널 ===== */
+  .panel {
+    background: var(--navy);
+    color: #e8e6df;
+    padding: 28px 24px 60px;
+    overflow-y: auto;
+    max-height: 100vh;
+  }
+  .panel::-webkit-scrollbar { width: 6px; }
+  .panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+
+  .brand-eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .brand-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 0 22px;
+    letter-spacing: -0.01em;
+    line-height: 1.35;
+  }
+
+  .field-group { margin-bottom: 18px; }
+  .field-label {
+    display: block;
+    font-size: 11.5px;
+    color: #a9b0bd;
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+  .field-input, .field-select {
+    width: 100%;
+    padding: 9px 10px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: var(--radius);
+    color: #f2f1ec;
+    font-size: 13.5px;
+    font-family: inherit;
+  }
+  .field-input::placeholder { color: #7c8494; }
+  .field-input:focus, .field-select:focus {
+    outline: none;
+    border-color: var(--gold);
+    background: rgba(255,255,255,0.09);
+  }
+  .field-select option { background: var(--navy-2); color: #fff; }
+
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .photo-upload {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .photo-preview {
+    width: 46px; height: 46px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.18);
+    background-size: cover;
+    background-position: center;
+    flex-shrink: 0;
+  }
+  .photo-btn {
+    font-size: 12px;
+    padding: 7px 12px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: var(--radius);
+    color: #e8e6df;
+    cursor: pointer;
+  }
+  .photo-btn:hover { background: rgba(255,255,255,0.14); }
+  input[type=file] { display: none; }
+
+  .btn-primary {
+    width: 100%;
+    padding: 11px;
+    background: var(--gold);
+    color: #24190a;
+    border: none;
+    border-radius: var(--radius);
+    font-weight: 700;
+    font-size: 13.5px;
+    cursor: pointer;
+    margin-top: 4px;
+    letter-spacing: 0.01em;
+  }
+  .btn-primary:hover { background: #c7a35c; }
+  .btn-secondary {
+    width: 100%;
+    padding: 10px;
+    background: transparent;
+    color: #cfd3da;
+    border: 1px solid rgba(255,255,255,0.22);
+    border-radius: var(--radius);
+    font-size: 12.5px;
+    cursor: pointer;
+    margin-top: 8px;
+  }
+  .btn-secondary:hover { border-color: rgba(255,255,255,0.5); }
+
+  .divider {
+    border: none;
+    border-top: 1px solid rgba(255,255,255,0.14);
+    margin: 26px 0 20px;
+  }
+
+  #editFormArea {
+    border-radius: var(--radius);
+    transition: box-shadow 0.3s ease, background 0.3s ease;
+    padding: 2px;
+    margin: -2px;
+  }
+  #editFormArea.editing-highlight {
+    box-shadow: 0 0 0 2px var(--gold);
+    background: rgba(184,147,74,0.08);
+  }
+
+  .toast {
+    position: fixed;
+    left: 24px;
+    bottom: 24px;
+    max-width: 330px;
+    background: #2a2118;
+    color: #f2ede0;
+    border-left: 3px solid var(--gold);
+    padding: 12px 16px;
+    font-size: 13px;
+    border-radius: var(--radius);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+    z-index: 999;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    pointer-events: none;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .toast.toast-danger { border-left-color: var(--danger); }
+
+  .delete-confirm-btn {
+    color: #fff !important;
+    background: var(--danger);
+    border-radius: 3px;
+    padding: 2px 6px !important;
+    font-size: 11px !important;
+  }
+
+  .list-title {
+    font-size: 12px;
+    color: #a9b0bd;
+    margin-bottom: 10px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+  }
+  .person-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 8px;
+    border-radius: var(--radius);
+    margin-bottom: 4px;
+  }
+  .person-row:hover { background: rgba(255,255,255,0.05); }
+  .person-row .thumb {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: rgba(255,255,255,0.1); background-size: cover; background-position: center;
+    flex-shrink: 0;
+  }
+  .person-row .meta { flex: 1; min-width: 0; }
+  .person-row .meta .nm { font-size: 13px; font-weight: 600; color: #f2f1ec; }
+  .person-row .meta .rl { font-size: 11px; color: #8f97a3; }
+  .row-actions button {
+    background: none; border: none; color: #8f97a3; cursor: pointer; font-size: 12px; padding: 2px 4px;
+  }
+  .row-actions button:hover { color: #e8e6df; }
+
+  .export-bar { display: flex; gap: 8px; }
+  .export-bar .btn-secondary { margin-top: 0; }
+
+  /* ===== 우측 조직도 캔버스 ===== */
+  .canvas-wrap {
+    padding: 40px 48px 80px;
+    display: flex;
+    justify-content: center;
+  }
+  #chart {
+    width: 100%;
+    max-width: 1040px;
+    background: var(--card);
+    padding: 48px 40px 56px;
+    border: 1px solid var(--line);
+  }
+  .chart-header {
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  .chart-eyebrow {
+    font-size: 10.5px;
+    letter-spacing: 0.18em;
+    color: var(--gold);
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .chart-dept-name {
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--navy);
+    margin: 4px 0 2px;
+    letter-spacing: -0.01em;
+  }
+  .chart-updated {
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-bottom: 34px;
+  }
+
+  .head-row { display: flex; justify-content: center; margin-bottom: 6px; }
+  .connector-v {
+    width: 1px;
+    height: 26px;
+    background: var(--line);
+    margin: 0 auto;
+  }
+  .teams-row {
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    position: relative;
+    margin-top: 0;
+  }
+  .team-col {
+    flex: 1;
+    max-width: 320px;
+    padding: 0 14px;
+    position: relative;
+  }
+  .team-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 800;
+    margin-bottom: 12px;
+    letter-spacing: -0.005em;
+    height: 18px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    padding: 0 6px;
+  }
+  .team-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .team-col::before {
+    content: '';
+    position: absolute;
+    top: -26px; left: 50%;
+    width: 1px; height: 26px;
+    background: var(--line);
+  }
+  .h-bridge {
+    position: relative;
+    height: 26px;
+    margin-bottom: 0;
+  }
+  .h-bridge::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: var(--line);
+  }
+
+  .lead-connector { width: 1px; height: 18px; background: var(--line); margin: 0 auto; }
+
+  .card-person {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px 12px;
+    text-align: center;
+    position: relative;
+  }
+  .card-head {
+    width: 320px;
+    margin: 0 auto 0;
+    border-color: var(--navy);
+    border-width: 1.5px;
+    padding: 18px 20px;
+    min-height: 170px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .card-lead {
+    margin-bottom: 0;
+    min-height: 150px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .card-member {
+    margin-bottom: 10px;
+    min-height: 176px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .avatar {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    margin: 0 auto 10px;
+    background: var(--paper-2);
+    background-size: cover;
+    background-position: center;
+    border: 1px solid var(--line);
+  }
+  .card-head .avatar { width: 68px; height: 68px; }
+
+  .p-name {
+    font-size: 15px; font-weight: 700; color: var(--ink); margin-bottom: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+  }
+  .card-head .p-name { font-size: 17px; }
+  .p-role {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--navy-2);
+    background: #eef1f6;
+    border-radius: 2px;
+    padding: 2px 7px;
+    margin-bottom: 7px;
+  }
+  .role-과장 { color: #7a5a13; background: #fbf1dd; }
+  .role-팀장 { color: var(--navy-2); background: #eef1f6; }
+  .role-팀원 { color: #4c5762; background: #f1f1ee; }
+
+  .p-team { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .p-phone {
+    font-size: 12px; color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    margin-top: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+  }
+  .p-phone::before { content: '☎ '; color: var(--muted); }
+  .p-dong {
+    margin-top: 7px;
+    display: flex; flex-wrap: wrap; gap: 4px; justify-content: center;
+    max-height: 42px;
+    overflow-y: auto;
+  }
+  .dong-tag {
+    font-size: 10px;
+    background: var(--paper-2);
+    color: var(--navy-2);
+    padding: 2px 6px;
+    border-radius: 2px;
+    border: 1px solid var(--line);
+  }
+
+  .members-list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+
+  .empty-note {
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    padding: 60px 0;
+  }
+
+  .footer-strip {
+    margin-top: 40px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    font-size: 10.5px;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ===== 좌측: 데이터 입력 패널 (내보낼 이미지에서 제외됨) ===== -->
+  <div class="panel" id="panel">
+    <div class="brand-eyebrow">파주시청 · 조직도 자동생성</div>
+    <h1 class="brand-title">인사이동 시<br>이 화면만 수정하세요</h1>
+
+    <div class="field-group">
+      <label class="field-label">과 이름</label>
+      <input class="field-input" id="deptName" placeholder="예: 허가3과" value="허가3과">
+    </div>
+
+    <hr class="divider">
+
+    <div class="list-title">구성원 추가 / 수정</div>
+
+    <div id="editFormArea">
+
+    <div class="field-group">
+      <label class="field-label">직급</label>
+      <select class="field-select" id="pRole">
+        <option value="과장">과장</option>
+        <option value="팀장">팀장</option>
+        <option value="팀원">팀원</option>
+      </select>
+    </div>
+
+    <div class="field-group" id="teamNameGroup">
+      <label class="field-label">소속 팀명 (팀장/팀원만 입력)</label>
+      <input class="field-input" id="pTeam" placeholder="예: 건축신고팀">
+    </div>
+
+    <div class="row-2 field-group">
+      <div>
+        <label class="field-label">이름</label>
+        <input class="field-input" id="pName" placeholder="홍길동">
+      </div>
+      <div>
+        <label class="field-label">행정전화번호</label>
+        <input class="field-input" id="pPhone" placeholder="031-940-0000">
+      </div>
+    </div>
+
+    <div class="field-group" id="dongGroup">
+      <label class="field-label">담당 동/읍/면 (쉼표로 구분, 팀원만)</label>
+      <input class="field-input" id="pDong" placeholder="예: 금촌동, 조리읍">
+    </div>
+
+    <div class="field-group">
+      <label class="field-label">사진</label>
+      <div class="photo-upload">
+        <div class="photo-preview" id="photoPreview"></div>
+        <label class="photo-btn" for="photoFile">사진 선택</label>
+        <input type="file" id="photoFile" accept="image/*">
+      </div>
+    </div>
+
+    <button class="btn-primary" id="saveBtn">+ 조직도에 추가</button>
+    <button class="btn-secondary" id="cancelEditBtn" style="display:none;">수정 취소</button>
+    </div>
+
+    <hr class="divider">
+
+    <div class="list-title">현재 구성원 (<span id="countLabel">0</span>명)</div>
+    <div id="personList"></div>
+
+    <hr class="divider">
+
+    <div class="list-title">저장 / 내보내기</div>
+    <div class="export-bar">
+      <button class="btn-secondary" id="exportJsonBtn">📄 데이터 저장(JSON)</button>
+      <button class="btn-secondary" id="importJsonBtn">📂 불러오기</button>
+    </div>
+    <input type="file" id="importJsonFile" accept="application/json">
+    <button class="btn-primary" id="exportPngBtn" style="margin-top:14px;">🖼 조직도 이미지로 저장</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- ===== 우측: 조직도 미리보기 (이미지로 내보내지는 영역) ===== -->
+  <div class="canvas-wrap">
+    <div id="chart">
+      <div class="chart-header">
+        <div class="chart-eyebrow">Paju City Hall · Organization Chart</div>
+        <div class="chart-dept-name" id="chartDeptName">허가3과</div>
+        <div class="chart-updated" id="chartUpdated">최종 수정: -</div>
+      </div>
+      <div id="chartBody"></div>
+      <div class="footer-strip">
+        <span>본 조직도는 인사발령 기준 자동 생성되었습니다.</span>
+        <span id="chartMeta"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let people = [
+  { id: 1, role: '과장', team: '', name: '김건축', phone: '031-940-1001', dong: [], photo: '' },
+  { id: 2, role: '팀장', team: '건축신고팀', name: '박기준', phone: '031-940-1011', dong: [], photo: '' },
+  { id: 3, role: '팀원', team: '건축신고팀', name: '이형욱', phone: '031-940-1012', dong: ['금촌동','조리읍'], photo: '' },
+  { id: 4, role: '팀원', team: '건축신고팀', name: '최민수', phone: '031-940-1013', dong: ['교하동'], photo: '' },
+  { id: 5, role: '팀장', team: '건축인허가팀', name: '정도시', phone: '031-940-1021', dong: [], photo: '' },
+  { id: 6, role: '팀원', team: '건축인허가팀', name: '오하나', phone: '031-940-1022', dong: ['운정1동','운정2동'], photo: '' },
+];
+let nextId = 7;
+let editingId = null;
+let currentPhoto = '';
+
+const $ = (id) => document.getElementById(id);
+
+function updateRoleFieldVisibility() {
+  const role = $('pRole').value;
+  $('teamNameGroup').style.display = role === '과장' ? 'none' : 'block';
+  $('dongGroup').style.display = role === '팀원' ? 'block' : 'none';
+}
+$('pRole').addEventListener('change', updateRoleFieldVisibility);
+updateRoleFieldVisibility();
+
+$('photoFile').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    currentPhoto = ev.target.result;
+    $('photoPreview').style.backgroundImage = `url(${currentPhoto})`;
+  };
+  reader.readAsDataURL(file);
+});
+
+function resetForm() {
+  $('pRole').value = '과장';
+  $('pTeam').value = '';
+  $('pName').value = '';
+  $('pPhone').value = '';
+  $('pDong').value = '';
+  $('photoPreview').style.backgroundImage = '';
+  currentPhoto = '';
+  editingId = null;
+  $('saveBtn').textContent = '+ 조직도에 추가';
+  $('cancelEditBtn').style.display = 'none';
+  updateRoleFieldVisibility();
+}
+
+$('cancelEditBtn').addEventListener('click', resetForm);
+
+function showToast(message, danger) {
+  const toast = $('toast');
+  toast.textContent = message;
+  toast.className = 'toast show' + (danger ? ' toast-danger' : '');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => { toast.className = 'toast'; }, 2800);
+}
+
+$('saveBtn').addEventListener('click', () => {
+  const role = $('pRole').value;
+  const name = $('pName').value.trim();
+  if (!name) { showToast('이름을 입력해주세요.', true); return; }
+  const entry = {
+    id: editingId || nextId++,
+    role,
+    team: role === '과장' ? '' : $('pTeam').value.trim(),
+    name,
+    phone: $('pPhone').value.trim(),
+    dong: role === '팀원' ? $('pDong').value.split(',').map(s => s.trim()).filter(Boolean) : [],
+    photo: currentPhoto,
+  };
+  if (editingId) {
+    const idx = people.findIndex(p => p.id === editingId);
+    // 사진을 새로 선택하지 않았으면 기존 사진 유지
+    if (!currentPhoto) entry.photo = people[idx].photo;
+    people[idx] = entry;
+  } else {
+    people.push(entry);
+  }
+  resetForm();
+  render();
+});
+
+function editPerson(id) {
+  const p = people.find(x => x.id === id);
+  if (!p) return;
+  if (pendingDeleteId !== null) { pendingDeleteId = null; clearTimeout(pendingDeleteTimer); }
+  editingId = id;
+  $('pRole').value = p.role;
+  $('pTeam').value = p.team;
+  $('pName').value = p.name;
+  $('pPhone').value = p.phone;
+  $('pDong').value = p.dong.join(', ');
+  currentPhoto = p.photo;
+  $('photoPreview').style.backgroundImage = p.photo ? `url(${p.photo})` : '';
+  $('saveBtn').textContent = '✓ 수정 완료';
+  $('cancelEditBtn').style.display = 'block';
+  updateRoleFieldVisibility();
+
+  const panel = $('panel');
+  panel.scrollTo({ top: 0, behavior: 'smooth' });
+  const formArea = $('editFormArea');
+  formArea.classList.add('editing-highlight');
+  setTimeout(() => formArea.classList.remove('editing-highlight'), 1400);
+}
+
+let pendingDeleteId = null;
+let pendingDeleteTimer = null;
+
+function deletePerson(id) {
+  if (pendingDeleteId === id) {
+    // 두 번째 클릭 -> 실제 삭제
+    clearTimeout(pendingDeleteTimer);
+    pendingDeleteId = null;
+    const target = people.find(p => p.id === id);
+    people = people.filter(p => p.id !== id);
+    render();
+    if (target) showToast(`'${target.name}' 삭제되었습니다.`);
+    return;
+  }
+  // 첫 번째 클릭 -> 확인 대기 상태로 전환
+  pendingDeleteId = id;
+  renderPersonList();
+  showToast('한 번 더 누르면 삭제됩니다.', true);
+  clearTimeout(pendingDeleteTimer);
+  pendingDeleteTimer = setTimeout(() => {
+    pendingDeleteId = null;
+    renderPersonList();
+  }, 3000);
+}
+
+function renderPersonList() {
+  const wrap = $('personList');
+  wrap.innerHTML = '';
+  $('countLabel').textContent = people.length;
+  people.forEach(p => {
+    const row = document.createElement('div');
+    row.className = 'person-row';
+    const isPending = pendingDeleteId === p.id;
+    row.innerHTML = `
+      <div class="thumb" style="background-image:url('${p.photo}')"></div>
+      <div class="meta">
+        <div class="nm">${p.name}</div>
+        <div class="rl">${p.role}${p.team ? ' · ' + p.team : ''}</div>
+      </div>
+      <div class="row-actions">
+        <button onclick="editPerson(${p.id})" title="수정">✎</button>
+        <button onclick="deletePerson(${p.id})" title="${isPending ? '한번 더 누르면 삭제' : '삭제'}" class="${isPending ? 'delete-confirm-btn' : ''}">${isPending ? '삭제확인' : '✕'}</button>
+      </div>`;
+    wrap.appendChild(row);
+  });
+}
+
+const TEAM_COLORS = ['#2f6f4f', '#6a4c93', '#1f6f78', '#9c4b3e', '#8a6d1f', '#3d5a80'];
+function teamColor(team) {
+  let hash = 0;
+  for (let i = 0; i < team.length; i++) hash = (hash * 31 + team.charCodeAt(i)) >>> 0;
+  return TEAM_COLORS[hash % TEAM_COLORS.length];
+}
+
+function avatarStyle(photo, extra) {
+  const bg = photo ? `background-image:url('${photo}');` : '';
+  return `style="${extra || ''}${bg}"`;
+}
+
+function renderChart() {
+  const deptName = $('deptName').value.trim() || '과 이름 미입력';
+  $('chartDeptName').textContent = deptName;
+  const now = new Date();
+  $('chartUpdated').textContent = `최종 수정: ${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')}`;
+  $('chartMeta').textContent = `총 인원 ${people.length}명`;
+
+  const head = people.find(p => p.role === '과장');
+  const teamNames = [...new Set(people.filter(p => p.role !== '과장' && p.team).map(p => p.team))];
+
+  if (!head && teamNames.length === 0) {
+    $('chartBody').innerHTML = `<div class="empty-note">좌측 패널에서 구성원을 추가하면<br>여기에 조직도가 자동으로 그려집니다.</div>`;
+    return;
+  }
+
+  let html = '';
+
+  if (head) {
+    html += `
+      <div class="head-row">
+        <div class="card-person card-head">
+          <div class="p-role role-과장">과장</div>
+          <div class="p-name" title="${head.name}">${head.name}</div>
+          <div class="p-phone" title="${head.phone || ''}">${head.phone || '-'}</div>
+          <div class="avatar" ${avatarStyle(head.photo)}></div>
+        </div>
+      </div>`;
+    if (teamNames.length) html += `<div class="connector-v"></div><div class="h-bridge"></div>`;
+  }
+
+  if (teamNames.length) {
+    html += `<div class="teams-row">`;
+    teamNames.forEach(team => {
+      const color = teamColor(team);
+      const lead = people.find(p => p.role === '팀장' && p.team === team);
+      const members = people.filter(p => p.role === '팀원' && p.team === team);
+      html += `<div class="team-col" style="border-top:3px solid ${color};padding-top:16px;">`;
+      html += `<div class="team-label" style="color:${color};" title="${team}"><span class="team-dot" style="background:${color};"></span>${team}</div>`;
+      if (lead) {
+        html += `
+          <div class="card-person card-lead" style="border-color:${color};border-width:1.5px;">
+            <div class="p-name" title="${lead.name}">${lead.name}</div>
+            <div class="p-phone" title="${lead.phone || ''}">${lead.phone || '-'}</div>
+            <div class="avatar" ${avatarStyle(lead.photo)}></div>
+          </div>`;
+      } else {
+        html += `
+          <div class="card-person card-lead" style="border-style:dashed;color:var(--muted);">
+            <div class="p-name" style="color:var(--muted)">공석</div>
+          </div>`;
+      }
+      if (members.length) {
+        html += `<div class="lead-connector" style="background:${color};"></div><div class="members-list">`;
+        members.forEach(m => {
+          html += `
+            <div class="card-person card-member" style="border-left:3px solid ${color};">
+              <div class="p-name" style="font-size:13.5px;" title="${m.name}">${m.name}</div>
+              <div class="p-phone" title="${m.phone || ''}">${m.phone || '-'}</div>
+              <div class="avatar" ${avatarStyle(m.photo, 'width:44px;height:44px;margin:7px auto;')}></div>
+              ${m.dong.length ? `<div class="p-dong">${m.dong.map(d => `<span class="dong-tag" style="border-color:${color};color:${color};">${d}</span>`).join('')}</div>` : ''}
+            </div>`;
+        });
+        html += `</div>`;
+      }
+      html += `</div>`;
+    });
+    html += `</div>`;
+  }
+
+  $('chartBody').innerHTML = html;
+}
+
+function render() {
+  renderPersonList();
+  renderChart();
+}
+
+$('deptName').addEventListener('input', renderChart);
+
+$('exportJsonBtn').addEventListener('click', () => {
+  const data = { deptName: $('deptName').value, people };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `조직도_${$('deptName').value || 'data'}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+$('importJsonBtn').addEventListener('click', () => $('importJsonFile').click());
+$('importJsonFile').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      $('deptName').value = data.deptName || '';
+      people = data.people || [];
+      nextId = Math.max(0, ...people.map(p => p.id)) + 1;
+      render();
+    } catch (err) {
+      showToast('파일을 읽을 수 없습니다. 올바른 JSON 파일인지 확인해주세요.', true);
+    }
+  };
+  reader.readAsText(file);
+});
+
+$('exportPngBtn').addEventListener('click', () => {
+  const btn = $('exportPngBtn');
+  btn.textContent = '생성 중...';
+  html2canvas($('chart'), { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
+    const link = document.createElement('a');
+    link.download = `조직도_${$('deptName').value || 'export'}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    btn.textContent = '🖼 조직도 이미지로 저장';
+  });
+});
+
+render();
+</script>
+
+</body>
+</html>
