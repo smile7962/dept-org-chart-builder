@@ -421,8 +421,8 @@
     margin-top: 7px;
     display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-start;
   }
-  /* 특정 카드(예: 우인욱)만 사진·내용·동지역 가운데 정렬 유지 */
-  .card-centered .card-row, .card-centered .p-dong { justify-content: center; }
+  /* 특정 카드(예: 우인욱)만 업무명(동지역 자리)을 가운데 정렬 유지 */
+  .card-centered .p-dong { justify-content: center; }
   .dong-tag {
     font-size: 10px;
     background: transparent;
@@ -1136,23 +1136,28 @@ function centerCardContents() {
     }
   });
 
-  // 김문정: 현 배치 그대로, 같은 팀 다른 팀원의 사진 왼쪽 라인에 맞춰 이동
-  const kim = [...document.querySelectorAll('#chartBody .card-member')]
-    .find(c => c.querySelector('.p-name') && c.querySelector('.p-name').textContent === '김문정');
-  if (kim) {
-    const col = kim.closest('.team-col');
-    const others = [...col.querySelectorAll('.card-member')].filter(c => c !== kim && c.querySelector('.avatar'));
-    if (others.length) {
-      const targetLeft = Math.min(...others.map(c => c.querySelector('.avatar').getBoundingClientRect().left));
-      const row = kim.querySelector('.card-row');
-      const dong = kim.querySelector('.p-dong');
-      const curPad = parseFloat((row && row.style.paddingLeft) || '0') || 0;
-      const delta = targetLeft - kim.querySelector('.avatar').getBoundingClientRect().left;
-      const newPad = Math.max(0, curPad + delta);
-      if (row) row.style.paddingLeft = newPad + 'px';
-      if (dong) dong.style.paddingLeft = newPad + 'px';
-    }
+  // 특정 인원을 같은 팀 다른 팀원의 사진 왼쪽 라인에 맞춰 이동
+  // alsoDong=true: 동지역도 함께 이동(사진 왼쪽 라인 정렬 유지)
+  // alsoDong=false: 사진행만 이동, 업무명(동지역 자리)은 그대로 유지
+  function alignPhotoToTeammates(name, alsoDong) {
+    const card = [...document.querySelectorAll('#chartBody .card-member')]
+      .find(c => c.querySelector('.p-name') && c.querySelector('.p-name').textContent === name);
+    if (!card) return;
+    const col = card.closest('.team-col');
+    const others = [...col.querySelectorAll('.card-member')].filter(c => c !== card && c.querySelector('.avatar'));
+    if (!others.length) return;
+    const targetLeft = Math.min(...others.map(c => c.querySelector('.avatar').getBoundingClientRect().left));
+    const row = card.querySelector('.card-row');
+    const dong = card.querySelector('.p-dong');
+    const curPad = parseFloat((row && row.style.paddingLeft) || '0') || 0;
+    const delta = targetLeft - card.querySelector('.avatar').getBoundingClientRect().left;
+    const newPad = Math.max(0, curPad + delta);
+    if (row) row.style.paddingLeft = newPad + 'px';
+    if (alsoDong && dong) dong.style.paddingLeft = newPad + 'px';
   }
+
+  alignPhotoToTeammates('김문정', true);   // 사진+내용+동지역 함께 이동
+  alignPhotoToTeammates('우인욱', false);  // 사진+내용만 이동, 업무명은 가운데 유지
 }
 
 // 직원(팀원) 박스를 가장 큰 박스 높이에 맞춰 크기 통일
