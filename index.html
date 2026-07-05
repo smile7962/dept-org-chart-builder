@@ -385,15 +385,15 @@
   }
 
   .avatar {
-    width: 56px; height: 56px;
-    border-radius: 50%;
+    width: 56px; height: 72px;      /* 증명사진 비율 3.5:4.5 */
+    border-radius: 6px;
     margin: 0 auto 10px;
     background: var(--paper-2);
     background-size: cover;
     background-position: center;
     border: 1px solid var(--line);
   }
-  .card-head .avatar { width: 68px; height: 68px; }
+  .card-head .avatar { width: 72px; height: 92px; }
 
   .p-name {
     font-size: 15px; font-weight: 700; color: var(--ink); margin-bottom: 2px;
@@ -1075,7 +1075,7 @@ function renderChart() {
               <div class="p-name" style="font-size:13.5px;" title="${esc(m.name)}">${esc(m.name)}</div>
               ${m.rank ? `<div class="p-rank" title="${esc(m.rank)}">${esc(m.rank)}</div>` : ''}
               <div class="p-phone" title="${esc(m.phone || '')}">${esc(m.phone) || '-'}</div>
-              <div class="avatar" ${avatarStyle(m.photo, 'width:44px;height:44px;margin:7px auto;')}></div>
+              <div class="avatar" ${avatarStyle(m.photo, 'width:44px;height:57px;margin:7px auto;')}></div>
               ${m.dong.length ? `<div class="p-dong">${m.dong.map(d => `<span class="dong-tag" style="border-color:${color};color:${color};">${esc(d)}</span>`).join('')}</div>` : ''}
             </div>`;
         });
