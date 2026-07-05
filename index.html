@@ -354,40 +354,29 @@
     background: #fff;
     border: 1px solid var(--line);
     border-radius: var(--radius);
-    padding: 14px 12px;
-    text-align: center;
+    padding: 12px 14px;
     position: relative;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    text-align: left;
   }
+  .card-info { flex: 1; min-width: 0; }
   .card-head {
-    width: 320px;
-    margin: 0 auto 0;
+    width: 340px;
+    margin: 0 auto;
     border-color: var(--navy);
     border-width: 1.5px;
-    padding: 18px 20px;
-    min-height: 170px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
+    padding: 16px 18px;
   }
-  .card-lead {
-    margin-bottom: 0;
-    min-height: 150px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
-  .card-member {
-    margin-bottom: 10px;
-    min-height: 176px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
+  .card-lead { margin-bottom: 0; }
+  .card-member { margin-bottom: 10px; }
 
   .avatar {
     width: 56px; height: 72px;      /* 증명사진 비율 3.5:4.5 */
     border-radius: 6px;
-    margin: 0 auto 10px;
+    margin: 0;
+    flex-shrink: 0;
     background: var(--paper-2);
     background-size: cover;
     background-position: center;
@@ -429,9 +418,7 @@
   .p-phone::before { content: '☎ '; color: var(--muted); }
   .p-dong {
     margin-top: 7px;
-    display: flex; flex-wrap: wrap; gap: 4px; justify-content: center;
-    max-height: 42px;
-    overflow-y: auto;
+    display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-start;
   }
   .dong-tag {
     font-size: 10px;
@@ -738,6 +725,12 @@ function avatarStyle(photo, extra) {
   return `style="${extra || ''}${bg}"`;
 }
 
+// 행정전화번호 뒷 4자리 (과장·팀장 카드에 표시)
+function last4(phone) {
+  const d = String(phone == null ? '' : phone).replace(/\D/g, '');
+  return d.length >= 4 ? d.slice(-4) : d;
+}
+
 // ===== 과장 (head) =====
 function syncHeadFields() {
   $('headName').value = head.name;
@@ -1035,11 +1028,13 @@ function renderChart() {
     html += `
       <div class="head-row">
         <div class="card-person card-head">
-          <div class="p-role role-과장">과장</div>
-          <div class="p-name" title="${esc(head.name)}">${esc(head.name)}</div>
-          ${head.rank ? `<div class="p-rank" title="${esc(head.rank)}">${esc(head.rank)}</div>` : ''}
-          <div class="p-phone" title="${esc(head.phone || '')}">${esc(head.phone) || '-'}</div>
           <div class="avatar" ${avatarStyle(head.photo)}></div>
+          <div class="card-info">
+            <div class="p-role role-과장">과장</div>
+            <div class="p-name" title="${esc(head.name)}">${esc(head.name)}</div>
+            ${head.rank ? `<div class="p-rank" title="${esc(head.rank)}">${esc(head.rank)}</div>` : ''}
+            <div class="p-phone" title="${esc(head.phone || '')}">${esc(last4(head.phone)) || '-'}</div>
+          </div>
         </div>
       </div>`;
     if (teams.length) html += `<div class="connector-v"></div><div class="h-bridge"></div>`;
@@ -1056,15 +1051,17 @@ function renderChart() {
       if (lead) {
         html += `
           <div class="card-person card-lead" style="border-color:${color};border-width:1.5px;">
-            <div class="p-name" title="${esc(lead.name)}">${esc(lead.name)}</div>
-            ${lead.rank ? `<div class="p-rank" title="${esc(lead.rank)}">${esc(lead.rank)}</div>` : ''}
-            <div class="p-phone" title="${esc(lead.phone || '')}">${esc(lead.phone) || '-'}</div>
             <div class="avatar" ${avatarStyle(lead.photo)}></div>
+            <div class="card-info">
+              <div class="p-name" title="${esc(lead.name)}">${esc(lead.name)}</div>
+              ${lead.rank ? `<div class="p-rank" title="${esc(lead.rank)}">${esc(lead.rank)}</div>` : ''}
+              <div class="p-phone" title="${esc(lead.phone || '')}">${esc(last4(lead.phone)) || '-'}</div>
+            </div>
           </div>`;
       } else {
         html += `
-          <div class="card-person card-lead" style="border-style:dashed;color:var(--muted);">
-            <div class="p-name" style="color:var(--muted)">팀장 공석</div>
+          <div class="card-person card-lead" style="border-style:dashed;">
+            <div class="card-info"><div class="p-name" style="color:var(--muted)">팀장 공석</div></div>
           </div>`;
       }
       if (mem.length) {
@@ -1072,11 +1069,12 @@ function renderChart() {
         mem.forEach(m => {
           html += `
             <div class="card-person card-member" style="border-left:3px solid ${color};">
-              <div class="p-name" style="font-size:13.5px;" title="${esc(m.name)}">${esc(m.name)}</div>
-              ${m.rank ? `<div class="p-rank" title="${esc(m.rank)}">${esc(m.rank)}</div>` : ''}
-              <div class="p-phone" title="${esc(m.phone || '')}">${esc(m.phone) || '-'}</div>
-              <div class="avatar" ${avatarStyle(m.photo, 'width:44px;height:57px;margin:7px auto;')}></div>
-              ${m.dong.length ? `<div class="p-dong">${m.dong.map(d => `<span class="dong-tag" style="border-color:${color};color:${color};">${esc(d)}</span>`).join('')}</div>` : ''}
+              <div class="avatar" ${avatarStyle(m.photo, 'width:48px;height:62px;')}></div>
+              <div class="card-info">
+                <div class="p-name" title="${esc(m.name)}">${esc(m.name)}</div>
+                ${m.rank ? `<div class="p-rank" title="${esc(m.rank)}">${esc(m.rank)}</div>` : ''}
+                ${m.dong.length ? `<div class="p-dong">${m.dong.map(d => `<span class="dong-tag" style="border-color:${color};color:${color};">${esc(d)}</span>`).join('')}</div>` : ''}
+              </div>
             </div>`;
         });
         html += `</div>`;
