@@ -228,6 +228,18 @@
   .row-actions button:disabled { opacity: 0.25; cursor: default; }
   .row-actions button:disabled:hover { color: #8f97a3; }
 
+  .warn-note {
+    background: rgba(163,60,60,0.16);
+    border: 1px solid rgba(163,60,60,0.45);
+    color: #f0cccc;
+    font-size: 11.5px;
+    line-height: 1.5;
+    padding: 8px 10px;
+    border-radius: var(--radius);
+    margin-top: 10px;
+  }
+  .warn-note div + div { margin-top: 5px; }
+
   .export-bar { display: flex; gap: 8px; }
   .export-bar .btn-secondary { margin-top: 0; }
 
@@ -504,6 +516,7 @@
 
     <div class="list-title">현재 구성원 (<span id="countLabel">0</span>명)</div>
     <div id="personList"></div>
+    <div id="warnArea" class="warn-note" style="display:none;"></div>
     <button class="btn-secondary" id="resetAllBtn">🗑 전체 구성원 초기화</button>
 
     <hr class="divider">
@@ -550,6 +563,65 @@ let editingId = null;
 let currentPhoto = '';
 
 const $ = (id) => document.getElementById(id);
+
+// HTML 컨텍스트 삽입 시 XSS 방지
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// 사진 URL 검증: 업로드된 이미지(data:image;base64) 또는 http(s)만 허용,
+// CSS url() 컨텍스트를 깨는 문자는 제거
+function safePhoto(p) {
+  if (typeof p !== 'string') return '';
+  const s = p.trim();
+  if (!/^(data:image\/(png|jpe?g|gif|webp|bmp|svg\+xml);base64,|https?:\/\/)/i.test(s)) return '';
+  return s.replace(/["'()\\\s<>]/g, '');
+}
+
+// 외부 JSON(불러오기/localStorage) 데이터를 안전한 구조로 정규화
+function normalizePerson(p, i) {
+  p = p || {};
+  const role = ['과장', '팀장', '팀원'].includes(p.role) ? p.role : '팀원';
+  const idNum = Number(p.id);
+  return {
+    id: Number.isFinite(idNum) ? idNum : Date.now() + i,
+    role,
+    team: role === '과장' ? '' : String(p.team == null ? '' : p.team).trim(),
+    name: String(p.name == null ? '' : p.name).trim(),
+    phone: String(p.phone == null ? '' : p.phone).trim(),
+    dong: role === '팀원' && Array.isArray(p.dong)
+      ? p.dong.map(d => String(d).trim()).filter(Boolean) : [],
+    photo: safePhoto(p.photo),
+  };
+}
+
+function loadPeople(list) {
+  const arr = Array.isArray(list) ? list.map(normalizePerson) : [];
+  nextId = arr.reduce((m, p) => Math.max(m, p.id), 0) + 1;
+  return arr;
+}
+
+// ===== localStorage 자동 저장 / 복원 =====
+const STORAGE_KEY = 'pajuOrgChart_v1';
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      deptName: $('deptName').value, people, nextId,
+    }));
+  } catch (e) { /* 용량 초과 등은 무시 (자동저장은 부가 기능) */ }
+}
+function restoreState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (!data || !Array.isArray(data.people)) return;
+    if (typeof data.deptName === 'string') $('deptName').value = data.deptName;
+    people = loadPeople(data.people);
+  } catch (e) { /* 손상된 저장값은 무시하고 기본 데이터 사용 */ }
+}
 
 function updateRoleFieldVisibility() {
   const role = $('pRole').value;
@@ -618,12 +690,13 @@ $('saveBtn').addEventListener('click', () => {
     dong: role === '팀원' ? $('pDong').value.split(',').map(s => s.trim()).filter(Boolean) : [],
     photo: currentPhoto,
   };
-  if (editingId) {
-    const idx = people.findIndex(p => p.id === editingId);
+  const idx = editingId ? people.findIndex(p => p.id === editingId) : -1;
+  if (idx !== -1) {
     // 사진을 새로 선택하지 않았으면 기존 사진 유지
     if (!currentPhoto) entry.photo = people[idx].photo;
     people[idx] = entry;
   } else {
+    // 신규이거나, 편집 중 목록에서 삭제된 경우 새로 추가
     people.push(entry);
   }
   resetForm();
@@ -696,11 +769,12 @@ function renderPersonList() {
     const row = document.createElement('div');
     row.className = 'person-row';
     const isPending = pendingDeleteId === p.id;
+    const sp = safePhoto(p.photo);
     row.innerHTML = `
-      <div class="thumb" style="background-image:url('${p.photo}')"></div>
+      <div class="thumb" style="${sp ? `background-image:url('${sp}')` : ''}"></div>
       <div class="meta">
-        <div class="nm">${p.name}</div>
-        <div class="rl">${p.role}${p.team ? ' · ' + p.team : ''}</div>
+        <div class="nm">${esc(p.name)}</div>
+        <div class="rl">${esc(p.role)}${p.team ? ' · ' + esc(p.team) : ''}</div>
       </div>
       <div class="row-actions">
         <button onclick="movePerson(${p.id}, -1)" title="위로" ${i === 0 ? 'disabled' : ''}>▲</button>
@@ -720,7 +794,8 @@ function teamColor(team) {
 }
 
 function avatarStyle(photo, extra) {
-  const bg = photo ? `background-image:url('${photo}');` : '';
+  const sp = safePhoto(photo);
+  const bg = sp ? `background-image:url('${sp}');` : '';
   return `style="${extra || ''}${bg}"`;
 }
 
@@ -746,8 +821,8 @@ function renderChart() {
       <div class="head-row">
         <div class="card-person card-head">
           <div class="p-role role-과장">과장</div>
-          <div class="p-name" title="${head.name}">${head.name}</div>
-          <div class="p-phone" title="${head.phone || ''}">${head.phone || '-'}</div>
+          <div class="p-name" title="${esc(head.name)}">${esc(head.name)}</div>
+          <div class="p-phone" title="${esc(head.phone || '')}">${esc(head.phone) || '-'}</div>
           <div class="avatar" ${avatarStyle(head.photo)}></div>
         </div>
       </div>`;
@@ -761,12 +836,12 @@ function renderChart() {
       const lead = people.find(p => p.role === '팀장' && p.team === team);
       const members = people.filter(p => p.role === '팀원' && p.team === team);
       html += `<div class="team-col" style="border-top:3px solid ${color};padding-top:16px;">`;
-      html += `<div class="team-label" style="color:${color};" title="${team}"><span class="team-dot" style="background:${color};"></span>${team}</div>`;
+      html += `<div class="team-label" style="color:${color};" title="${esc(team)}"><span class="team-dot" style="background:${color};"></span>${esc(team)}</div>`;
       if (lead) {
         html += `
           <div class="card-person card-lead" style="border-color:${color};border-width:1.5px;">
-            <div class="p-name" title="${lead.name}">${lead.name}</div>
-            <div class="p-phone" title="${lead.phone || ''}">${lead.phone || '-'}</div>
+            <div class="p-name" title="${esc(lead.name)}">${esc(lead.name)}</div>
+            <div class="p-phone" title="${esc(lead.phone || '')}">${esc(lead.phone) || '-'}</div>
             <div class="avatar" ${avatarStyle(lead.photo)}></div>
           </div>`;
       } else {
@@ -780,10 +855,10 @@ function renderChart() {
         members.forEach(m => {
           html += `
             <div class="card-person card-member" style="border-left:3px solid ${color};">
-              <div class="p-name" style="font-size:13.5px;" title="${m.name}">${m.name}</div>
-              <div class="p-phone" title="${m.phone || ''}">${m.phone || '-'}</div>
+              <div class="p-name" style="font-size:13.5px;" title="${esc(m.name)}">${esc(m.name)}</div>
+              <div class="p-phone" title="${esc(m.phone || '')}">${esc(m.phone) || '-'}</div>
               <div class="avatar" ${avatarStyle(m.photo, 'width:44px;height:44px;margin:7px auto;')}></div>
-              ${m.dong.length ? `<div class="p-dong">${m.dong.map(d => `<span class="dong-tag" style="border-color:${color};color:${color};">${d}</span>`).join('')}</div>` : ''}
+              ${m.dong.length ? `<div class="p-dong">${m.dong.map(d => `<span class="dong-tag" style="border-color:${color};color:${color};">${esc(d)}</span>`).join('')}</div>` : ''}
             </div>`;
         });
         html += `</div>`;
@@ -796,12 +871,31 @@ function renderChart() {
   $('chartBody').innerHTML = html;
 }
 
+// 조직도에 표시되지 않는 구성원을 좌측 패널에 경고로 안내 (이미지에는 포함되지 않음)
+function renderWarnings() {
+  const w = $('warnArea');
+  const msgs = [];
+  const heads = people.filter(p => p.role === '과장');
+  if (heads.length > 1) {
+    msgs.push(`과장이 ${heads.length}명입니다. 조직도에는 목록 상단의 1명만 표시됩니다.`);
+  }
+  const noTeam = people.filter(p => p.role !== '과장' && !p.team);
+  if (noTeam.length) {
+    msgs.push(`팀명이 없는 ${noTeam.length}명(${noTeam.map(p => p.name).join(', ')})은 조직도에 표시되지 않습니다. 소속 팀명을 입력하세요.`);
+  }
+  if (!msgs.length) { w.style.display = 'none'; w.innerHTML = ''; return; }
+  w.style.display = 'block';
+  w.innerHTML = msgs.map(m => `<div>⚠ ${esc(m)}</div>`).join('');
+}
+
 function render() {
   renderPersonList();
   renderChart();
+  renderWarnings();
+  saveState();
 }
 
-$('deptName').addEventListener('input', renderChart);
+$('deptName').addEventListener('input', () => { renderChart(); saveState(); });
 
 $('exportJsonBtn').addEventListener('click', () => {
   const data = { deptName: $('deptName').value, people };
@@ -822,12 +916,19 @@ $('importJsonFile').addEventListener('change', (e) => {
   reader.onload = (ev) => {
     try {
       const data = JSON.parse(ev.target.result);
-      $('deptName').value = data.deptName || '';
-      people = data.people || [];
-      nextId = Math.max(0, ...people.map(p => p.id)) + 1;
+      if (!data || !Array.isArray(data.people)) {
+        showToast('조직도 데이터 형식이 아닙니다. (people 목록이 없음)', true);
+        return;
+      }
+      $('deptName').value = typeof data.deptName === 'string' ? data.deptName : '';
+      people = loadPeople(data.people);
+      resetForm();
       render();
+      showToast('데이터를 불러왔습니다.');
     } catch (err) {
       showToast('파일을 읽을 수 없습니다. 올바른 JSON 파일인지 확인해주세요.', true);
+    } finally {
+      e.target.value = '';
     }
   };
   reader.readAsText(file);
@@ -835,16 +936,23 @@ $('importJsonFile').addEventListener('change', (e) => {
 
 $('exportPngBtn').addEventListener('click', () => {
   const btn = $('exportPngBtn');
+  const label = '🖼 조직도 이미지로 저장';
   btn.textContent = '생성 중...';
+  btn.disabled = true;
   html2canvas($('chart'), { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
     const link = document.createElement('a');
     link.download = `조직도_${$('deptName').value || 'export'}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
-    btn.textContent = '🖼 조직도 이미지로 저장';
+  }).catch(err => {
+    showToast('이미지 생성에 실패했습니다. 다시 시도해주세요.', true);
+  }).finally(() => {
+    btn.textContent = label;
+    btn.disabled = false;
   });
 });
 
+restoreState();
 render();
 </script>
 
