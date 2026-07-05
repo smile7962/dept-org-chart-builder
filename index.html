@@ -371,7 +371,7 @@
   }
   .card-head .card-row { justify-content: center; }
   .card-lead { margin-bottom: 0; }
-  .card-member { margin-bottom: 10px; }
+  .card-member { margin-bottom: 0; }
 
   .avatar {
     width: 56px; height: 72px;      /* 증명사진 비율 3.5:4.5 */
@@ -430,7 +430,7 @@
     border: 1px solid var(--line);
   }
 
-  .members-list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+  .members-list { display: flex; flex-direction: column; }
 
   .empty-note {
     text-align: center;
@@ -1081,8 +1081,9 @@ function renderChart() {
           </div>`;
       }
       if (mem.length) {
-        html += `<div class="lead-connector" style="background:${color};"></div><div class="members-list">`;
+        html += `<div class="members-list">`;
         mem.forEach(m => {
+          html += `<div class="lead-connector" style="background:${color};"></div>`;
           html += `
             <div class="card-person card-member" style="border-left:3px solid ${color};">
               <div class="card-row">
