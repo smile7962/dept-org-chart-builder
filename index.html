@@ -221,12 +221,20 @@
   .person-row .meta { flex: 1; min-width: 0; }
   .person-row .meta .nm { font-size: 13px; font-weight: 600; color: #f2f1ec; }
   .person-row .meta .rl { font-size: 11px; color: #8f97a3; }
+  .row-actions { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
   .row-actions button {
-    background: none; border: none; color: #8f97a3; cursor: pointer; font-size: 12px; padding: 2px 4px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.14);
+    color: #cdd2db;
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    padding: 4px 6px;
+    border-radius: 3px;
   }
-  .row-actions button:hover { color: #e8e6df; }
-  .row-actions button:disabled { opacity: 0.25; cursor: default; }
-  .row-actions button:disabled:hover { color: #8f97a3; }
+  .row-actions button:hover { background: rgba(255,255,255,0.18); color: #fff; }
+  .row-actions button:disabled { opacity: 0.3; cursor: default; }
+  .row-actions button:disabled:hover { background: rgba(255,255,255,0.07); color: #cdd2db; }
 
   .hint-note { color: #8f97a3; font-size: 12px; padding: 4px 2px; }
 
