@@ -416,6 +416,10 @@
   .role-팀원 { color: #4c5762; background: #f1f1ee; }
 
   .p-team { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .p-rank {
+    font-size: 11px; color: var(--muted); margin-bottom: 4px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+  }
   .p-phone {
     font-size: 12px; color: var(--ink);
     font-variant-numeric: tabular-nums;
@@ -486,6 +490,10 @@
       </div>
     </div>
     <div class="field-group">
+      <label class="field-label" for="headRank">직급 · 직위 (예: 지방시설사무관)</label>
+      <input class="field-input" id="headRank" placeholder="예: 지방시설사무관">
+    </div>
+    <div class="field-group">
       <label class="field-label">과장 사진</label>
       <div class="photo-upload">
         <div class="photo-preview" id="headPhotoPreview"></div>
@@ -519,7 +527,7 @@
     </div>
 
     <div class="field-group">
-      <label class="field-label" for="mRole">직급</label>
+      <label class="field-label" for="mRole">구분 (팀장/팀원)</label>
       <select class="field-select" id="mRole">
         <option value="팀장">팀장</option>
         <option value="팀원">팀원</option>
@@ -535,6 +543,11 @@
         <label class="field-label" for="mPhone">행정전화번호</label>
         <input class="field-input" id="mPhone" placeholder="031-940-0000">
       </div>
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="mRank">직급 · 직위 (예: 지방시설주사보)</label>
+      <input class="field-input" id="mRank" placeholder="예: 지방시설주사보">
     </div>
 
     <div class="field-group" id="mDongGroup">
@@ -594,17 +607,17 @@
 <script>
 // ===== 데이터 (팀 중심 구조) =====
 // head: 과장(1명), teams: 순서 있는 팀 목록, members: 팀 소속 구성원
-let head = { name: '김건축', phone: '031-940-1001', photo: '' };
+let head = { name: '김건축', phone: '031-940-1001', rank: '지방시설사무관', photo: '' };
 let teams = [
   { id: 1, name: '건축신고팀' },
   { id: 2, name: '건축인허가팀' },
 ];
 let members = [
-  { id: 1, teamId: 1, role: '팀장', name: '박기준', phone: '031-940-1011', dong: [], photo: '' },
-  { id: 2, teamId: 1, role: '팀원', name: '이형욱', phone: '031-940-1012', dong: ['금촌동','조리읍'], photo: '' },
-  { id: 3, teamId: 1, role: '팀원', name: '최민수', phone: '031-940-1013', dong: ['교하동'], photo: '' },
-  { id: 4, teamId: 2, role: '팀장', name: '정도시', phone: '031-940-1021', dong: [], photo: '' },
-  { id: 5, teamId: 2, role: '팀원', name: '오하나', phone: '031-940-1022', dong: ['운정1동','운정2동'], photo: '' },
+  { id: 1, teamId: 1, role: '팀장', name: '박기준', phone: '031-940-1011', rank: '지방시설주사', dong: [], photo: '' },
+  { id: 2, teamId: 1, role: '팀원', name: '이형욱', phone: '031-940-1012', rank: '지방시설주사보', dong: ['금촌동','조리읍'], photo: '' },
+  { id: 3, teamId: 1, role: '팀원', name: '최민수', phone: '031-940-1013', rank: '지방행정서기', dong: ['교하동'], photo: '' },
+  { id: 4, teamId: 2, role: '팀장', name: '정도시', phone: '031-940-1021', rank: '지방시설주사', dong: [], photo: '' },
+  { id: 5, teamId: 2, role: '팀원', name: '오하나', phone: '031-940-1022', rank: '지방시설서기', dong: ['운정1동','운정2동'], photo: '' },
 ];
 let nextTeamId = 3;
 let nextMemberId = 6;
@@ -658,6 +671,7 @@ function normalizeState(data) {
   head = {
     name: String(h.name == null ? '' : h.name).trim(),
     phone: String(h.phone == null ? '' : h.phone).trim(),
+    rank: String(h.rank == null ? '' : h.rank).trim(),
     photo: safePhoto(h.photo),
   };
   teams = Array.isArray(data && data.teams) ? data.teams.map((t, i) => ({
@@ -673,6 +687,7 @@ function normalizeState(data) {
       role,
       name: String(m && m.name != null ? m.name : '').trim(),
       phone: String(m && m.phone != null ? m.phone : '').trim(),
+      rank: String(m && m.rank != null ? m.rank : '').trim(),
       dong: role === '팀원' && Array.isArray(m && m.dong)
         ? m.dong.map(d => String(d).trim()).filter(Boolean) : [],
       photo: safePhoto(m && m.photo),
@@ -727,10 +742,12 @@ function avatarStyle(photo, extra) {
 function syncHeadFields() {
   $('headName').value = head.name;
   $('headPhone').value = head.phone;
+  $('headRank').value = head.rank || '';
   $('headPhotoPreview').style.backgroundImage = head.photo ? `url('${head.photo}')` : '';
 }
 $('headName').addEventListener('input', () => { head.name = $('headName').value; renderChart(); saveState(); });
 $('headPhone').addEventListener('input', () => { head.phone = $('headPhone').value; renderChart(); saveState(); });
+$('headRank').addEventListener('input', () => { head.rank = $('headRank').value; renderChart(); saveState(); });
 $('headPhotoFile').addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -863,6 +880,7 @@ function resetMemberForm() {
   $('mRole').value = '팀장';
   $('mName').value = '';
   $('mPhone').value = '';
+  $('mRank').value = '';
   $('mDong').value = '';
   $('mPhotoPreview').style.backgroundImage = '';
   memberPhoto = '';
@@ -884,6 +902,7 @@ $('saveMemberBtn').addEventListener('click', () => {
     role,
     name,
     phone: $('mPhone').value.trim(),
+    rank: $('mRank').value.trim(),
     dong: role === '팀원' ? $('mDong').value.split(',').map(s => s.trim()).filter(Boolean) : [],
     photo: memberPhoto,
   };
@@ -910,6 +929,7 @@ function editMember(id) {
   $('mRole').value = m.role;
   $('mName').value = m.name;
   $('mPhone').value = m.phone;
+  $('mRank').value = m.rank || '';
   $('mDong').value = m.dong.join(', ');
   memberPhoto = m.photo;
   $('mPhotoPreview').style.backgroundImage = m.photo ? `url('${m.photo}')` : '';
@@ -1017,6 +1037,7 @@ function renderChart() {
         <div class="card-person card-head">
           <div class="p-role role-과장">과장</div>
           <div class="p-name" title="${esc(head.name)}">${esc(head.name)}</div>
+          ${head.rank ? `<div class="p-rank" title="${esc(head.rank)}">${esc(head.rank)}</div>` : ''}
           <div class="p-phone" title="${esc(head.phone || '')}">${esc(head.phone) || '-'}</div>
           <div class="avatar" ${avatarStyle(head.photo)}></div>
         </div>
@@ -1036,6 +1057,7 @@ function renderChart() {
         html += `
           <div class="card-person card-lead" style="border-color:${color};border-width:1.5px;">
             <div class="p-name" title="${esc(lead.name)}">${esc(lead.name)}</div>
+            ${lead.rank ? `<div class="p-rank" title="${esc(lead.rank)}">${esc(lead.rank)}</div>` : ''}
             <div class="p-phone" title="${esc(lead.phone || '')}">${esc(lead.phone) || '-'}</div>
             <div class="avatar" ${avatarStyle(lead.photo)}></div>
           </div>`;
@@ -1051,6 +1073,7 @@ function renderChart() {
           html += `
             <div class="card-person card-member" style="border-left:3px solid ${color};">
               <div class="p-name" style="font-size:13.5px;" title="${esc(m.name)}">${esc(m.name)}</div>
+              ${m.rank ? `<div class="p-rank" title="${esc(m.rank)}">${esc(m.rank)}</div>` : ''}
               <div class="p-phone" title="${esc(m.phone || '')}">${esc(m.phone) || '-'}</div>
               <div class="avatar" ${avatarStyle(m.photo, 'width:44px;height:44px;margin:7px auto;')}></div>
               ${m.dong.length ? `<div class="p-dong">${m.dong.map(d => `<span class="dong-tag" style="border-color:${color};color:${color};">${esc(d)}</span>`).join('')}</div>` : ''}
@@ -1083,7 +1106,7 @@ $('resetAllBtn').addEventListener('click', () => {
     showToast('초기화할 내용이 없습니다.', true); return;
   }
   if (!confirm('전체 내용(과장 · 팀 · 구성원)을 모두 삭제할까요?\n되돌릴 수 없습니다.')) return;
-  head = { name: '', phone: '', photo: '' };
+  head = { name: '', phone: '', rank: '', photo: '' };
   teams = [];
   members = [];
   pendingDeleteId = null;
