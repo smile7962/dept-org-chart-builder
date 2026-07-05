@@ -1070,7 +1070,7 @@ function renderChart() {
         mem.forEach(m => {
           html += `
             <div class="card-person card-member" style="border-left:3px solid ${color};">
-              <div class="avatar" ${avatarStyle(m.photo, 'width:48px;height:62px;')}></div>
+              <div class="avatar" ${avatarStyle(m.photo)}></div>
               <div class="card-info">
                 <div class="p-name" title="${esc(m.name)}">${esc(m.name)}</div>
                 ${m.rank ? `<div class="p-rank" title="${esc(m.rank)}">${esc(m.rank)}</div>` : ''}
