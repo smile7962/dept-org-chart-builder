@@ -1103,6 +1103,16 @@ function renderChart() {
   }
 
   $('chartBody').innerHTML = html;
+  equalizeMemberHeights();
+}
+
+// 직원(팀원) 박스를 가장 큰 박스 높이에 맞춰 크기 통일
+function equalizeMemberHeights() {
+  const cards = document.querySelectorAll('#chartBody .card-member');
+  cards.forEach(c => { c.style.minHeight = ''; });
+  let max = 0;
+  cards.forEach(c => { max = Math.max(max, c.offsetHeight); });
+  if (max) cards.forEach(c => { c.style.minHeight = max + 'px'; });
 }
 
 function render() {
