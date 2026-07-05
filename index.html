@@ -1107,7 +1107,34 @@ function renderChart() {
   }
 
   $('chartBody').innerHTML = html;
+  centerCardContents();
   equalizeMemberHeights();
+}
+
+// 과장 제외 카드의 [사진+내용+동지역] 블록을 통째로 우측 이동해 카드 중앙에 배치
+// (내부 배치는 그대로: 동지역은 사진 왼쪽 라인에 정렬). card-centered(우인욱)는 제외.
+function centerCardContents() {
+  document.querySelectorAll('#chartBody .card-member, #chartBody .card-lead').forEach(card => {
+    const row = card.querySelector('.card-row');
+    const dong = card.querySelector('.p-dong');
+    if (row) row.style.paddingLeft = '';
+    if (dong) dong.style.paddingLeft = '';
+    if (card.classList.contains('card-centered')) return;   // 우인욱 등: 이미 가운데
+    if (!card.querySelector('.avatar')) return;              // 공석 등 제외
+    const cs = getComputedStyle(card);
+    const cardRect = card.getBoundingClientRect();
+    const innerLeft = cardRect.left + parseFloat(cs.paddingLeft);
+    const innerRight = cardRect.right - parseFloat(cs.paddingRight);
+    let contentRight = innerLeft;
+    card.querySelectorAll('.avatar, .p-name, .p-rank, .p-phone, .p-role, .dong-tag').forEach(el => {
+      contentRight = Math.max(contentRight, el.getBoundingClientRect().right);
+    });
+    const shift = (innerRight - contentRight) / 2;
+    if (shift > 1) {
+      if (row) row.style.paddingLeft = shift + 'px';
+      if (dong) dong.style.paddingLeft = shift + 'px';
+    }
+  });
 }
 
 // 직원(팀원) 박스를 가장 큰 박스 높이에 맞춰 크기 통일
