@@ -357,11 +357,10 @@
     padding: 12px 14px;
     position: relative;
     display: flex;
-    align-items: flex-start;
-    justify-content: flex-start;
-    gap: 14px;
+    flex-direction: column;
     text-align: left;
   }
+  .card-row { display: flex; align-items: flex-start; gap: 14px; }
   .card-info { min-width: 0; }
   .card-head {
     width: 340px;
@@ -1040,12 +1039,14 @@ function renderChart() {
     html += `
       <div class="head-row">
         <div class="card-person card-head">
-          <div class="avatar" ${avatarStyle(head.photo)}></div>
-          <div class="card-info">
-            <div class="p-role role-과장">과장</div>
-            <div class="p-name" title="${esc(head.name)}">${esc(head.name)}</div>
-            ${head.rank ? `<div class="p-rank" title="${esc(head.rank)}">${esc(head.rank)}</div>` : ''}
-            <div class="p-phone" title="${esc(head.phone || '')}">${esc(last4(head.phone)) || '-'}</div>
+          <div class="card-row">
+            <div class="avatar" ${avatarStyle(head.photo)}></div>
+            <div class="card-info">
+              <div class="p-role role-과장">과장</div>
+              <div class="p-name" title="${esc(head.name)}">${esc(head.name)}</div>
+              ${head.rank ? `<div class="p-rank" title="${esc(head.rank)}">${esc(head.rank)}</div>` : ''}
+              <div class="p-phone" title="${esc(head.phone || '')}">${esc(last4(head.phone)) || '-'}</div>
+            </div>
           </div>
         </div>
       </div>`;
@@ -1063,11 +1064,13 @@ function renderChart() {
       if (lead) {
         html += `
           <div class="card-person card-lead" style="border-color:${color};border-width:1.5px;">
-            <div class="avatar" ${avatarStyle(lead.photo)}></div>
-            <div class="card-info">
-              <div class="p-name" title="${esc(lead.name)}">${esc(lead.name)}</div>
-              ${lead.rank ? `<div class="p-rank" title="${esc(lead.rank)}">${esc(lead.rank)}</div>` : ''}
-              <div class="p-phone" title="${esc(lead.phone || '')}">${esc(last4(lead.phone)) || '-'}</div>
+            <div class="card-row">
+              <div class="avatar" ${avatarStyle(lead.photo)}></div>
+              <div class="card-info">
+                <div class="p-name" title="${esc(lead.name)}">${esc(lead.name)}</div>
+                ${lead.rank ? `<div class="p-rank" title="${esc(lead.rank)}">${esc(lead.rank)}</div>` : ''}
+                <div class="p-phone" title="${esc(lead.phone || '')}">${esc(last4(lead.phone)) || '-'}</div>
+              </div>
             </div>
           </div>`;
       } else {
@@ -1081,13 +1084,15 @@ function renderChart() {
         mem.forEach(m => {
           html += `
             <div class="card-person card-member" style="border-left:3px solid ${color};">
-              <div class="avatar" ${avatarStyle(m.photo)}></div>
-              <div class="card-info">
-                <div class="p-name" title="${esc(m.name)}">${esc(m.name)}</div>
-                ${m.rank ? `<div class="p-rank" title="${esc(m.rank)}">${esc(m.rank)}</div>` : ''}
-                <div class="p-phone" title="${esc(m.phone || '')}">${esc(last4(m.phone)) || '-'}</div>
-                ${dongTags(m.dong, color)}
+              <div class="card-row">
+                <div class="avatar" ${avatarStyle(m.photo)}></div>
+                <div class="card-info">
+                  <div class="p-name" title="${esc(m.name)}">${esc(m.name)}</div>
+                  ${m.rank ? `<div class="p-rank" title="${esc(m.rank)}">${esc(m.rank)}</div>` : ''}
+                  <div class="p-phone" title="${esc(m.phone || '')}">${esc(last4(m.phone)) || '-'}</div>
+                </div>
               </div>
+              ${dongTags(m.dong, color)}
             </div>`;
         });
         html += `</div>`;
