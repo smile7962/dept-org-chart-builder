@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>과 조직도 자동생성기</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="vendor/html2canvas.min.js"></script>
 <style>
   @font-face {
     font-family: 'Pretendard';
@@ -254,6 +254,7 @@
   #chart {
     width: 100%;
     max-width: 1040px;
+    aspect-ratio: 297 / 210;   /* A4 가로 비율 (내용이 길면 자동으로 늘어남) */
     background: var(--card);
     padding: 48px 40px 56px;
     border: 1px solid var(--line);
@@ -562,6 +563,7 @@
     </div>
     <input type="file" id="importJsonFile" accept="application/json">
     <button class="btn-primary" id="exportPngBtn" style="margin-top:14px;">🖼 조직도 이미지로 저장</button>
+    <button class="btn-primary" id="printBtn" style="margin-top:8px;">🖨 A4로 출력(인쇄)</button>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -1138,6 +1140,49 @@ $('exportPngBtn').addEventListener('click', () => {
     link.click();
   }).catch(err => {
     showToast('이미지 생성에 실패했습니다. 다시 시도해주세요.', true);
+  }).finally(() => {
+    btn.textContent = label;
+    btn.disabled = false;
+  });
+});
+
+// 조직도 이미지를 A4 페이지에 비율 유지로 배치해 숨김 iframe에서 인쇄
+function printImageOnA4(dataUrl, wmm, hmm) {
+  const old = $('printFrame');
+  if (old) old.remove();
+  const frame = document.createElement('iframe');
+  frame.id = 'printFrame';
+  frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+  document.body.appendChild(frame);
+  const doc = frame.contentWindow.document;
+  doc.open();
+  doc.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>조직도 출력</title>
+    <style>
+      @page { size: A4 landscape; margin: 10mm; }
+      html, body { margin: 0; padding: 0; }
+      img { display: block; margin: 0 auto; width: ${wmm}mm; height: ${hmm}mm; }
+    </style></head>
+    <body><img src="${dataUrl}"></body></html>`);
+  doc.close();
+  const img = doc.querySelector('img');
+  const go = () => { frame.contentWindow.focus(); frame.contentWindow.print(); };
+  if (img.complete) setTimeout(go, 50); else img.onload = () => setTimeout(go, 50);
+}
+
+$('printBtn').addEventListener('click', () => {
+  const btn = $('printBtn');
+  const label = '🖨 A4로 출력(인쇄)';
+  btn.textContent = '준비 중...';
+  btn.disabled = true;
+  html2canvas($('chart'), { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
+    // A4 가로 인쇄영역(여백 10mm 제외): 277 x 190 mm 안에 비율 유지하며 맞춤
+    const pageW = 277, pageH = 190;
+    const ar = canvas.width / canvas.height;
+    let w = pageW, h = pageW / ar;
+    if (h > pageH) { h = pageH; w = pageH * ar; }
+    printImageOnA4(canvas.toDataURL('image/png'), Math.round(w * 10) / 10, Math.round(h * 10) / 10);
+  }).catch(err => {
+    showToast('출력 준비에 실패했습니다. 다시 시도해주세요.', true);
   }).finally(() => {
     btn.textContent = label;
     btn.disabled = false;
