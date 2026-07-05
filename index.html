@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>과 조직도 자동생성기</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<title>파주시청 부서 조직도 생성기</title>
+<script src="vendor/html2canvas.min.js"></script>
 <style>
   @font-face {
     font-family: 'Pretendard';
@@ -221,10 +221,34 @@
   .person-row .meta { flex: 1; min-width: 0; }
   .person-row .meta .nm { font-size: 13px; font-weight: 600; color: #f2f1ec; }
   .person-row .meta .rl { font-size: 11px; color: #8f97a3; }
+  .row-actions { display: flex; align-items: center; gap: 3px; flex-shrink: 0; }
   .row-actions button {
-    background: none; border: none; color: #8f97a3; cursor: pointer; font-size: 12px; padding: 2px 4px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.14);
+    color: #cdd2db;
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    padding: 4px 6px;
+    border-radius: 3px;
   }
-  .row-actions button:hover { color: #e8e6df; }
+  .row-actions button:hover { background: rgba(255,255,255,0.18); color: #fff; }
+  .row-actions button:disabled { opacity: 0.3; cursor: default; }
+  .row-actions button:disabled:hover { background: rgba(255,255,255,0.07); color: #cdd2db; }
+
+  .hint-note { color: #8f97a3; font-size: 12px; padding: 4px 2px; }
+
+  .warn-note {
+    background: rgba(163,60,60,0.16);
+    border: 1px solid rgba(163,60,60,0.45);
+    color: #f0cccc;
+    font-size: 11.5px;
+    line-height: 1.5;
+    padding: 8px 10px;
+    border-radius: var(--radius);
+    margin-top: 10px;
+  }
+  .warn-note div + div { margin-top: 5px; }
 
   .export-bar { display: flex; gap: 8px; }
   .export-bar .btn-secondary { margin-top: 0; }
@@ -238,6 +262,7 @@
   #chart {
     width: 100%;
     max-width: 1040px;
+    aspect-ratio: 297 / 210;   /* A4 가로 비율 (내용이 길면 자동으로 늘어남) */
     background: var(--card);
     padding: 48px 40px 56px;
     border: 1px solid var(--line);
@@ -257,13 +282,8 @@
     font-size: 26px;
     font-weight: 800;
     color: var(--navy);
-    margin: 4px 0 2px;
+    margin: 4px 0 34px;
     letter-spacing: -0.01em;
-  }
-  .chart-updated {
-    font-size: 11.5px;
-    color: var(--muted);
-    margin-bottom: 34px;
   }
 
   .head-row { display: flex; justify-content: center; margin-bottom: 6px; }
@@ -275,8 +295,10 @@
   }
   .teams-row {
     display: flex;
+    flex-wrap: wrap;
     justify-content: center;
     gap: 0;
+    row-gap: 36px;
     position: relative;
     margin-top: 0;
   }
@@ -441,67 +463,104 @@
 <div class="app">
   <!-- ===== 좌측: 데이터 입력 패널 (내보낼 이미지에서 제외됨) ===== -->
   <div class="panel" id="panel">
-    <div class="brand-eyebrow">파주시청 · 조직도 자동생성</div>
-    <h1 class="brand-title">인사이동 시<br>이 화면만 수정하세요</h1>
+    <div class="brand-eyebrow">파주시청</div>
+    <h1 class="brand-title">부서 조직도 생성기</h1>
 
     <div class="field-group">
-      <label class="field-label">과 이름</label>
+      <label class="field-label" for="deptName">과 이름</label>
       <input class="field-input" id="deptName" placeholder="예: 허가3과" value="허가3과">
     </div>
 
     <hr class="divider">
 
-    <div class="list-title">구성원 추가 / 수정</div>
+    <!-- 과장 (과 대표) -->
+    <div class="list-title">과장 (과 대표)</div>
+    <div class="row-2 field-group">
+      <div>
+        <label class="field-label" for="headName">이름</label>
+        <input class="field-input" id="headName" placeholder="예: 김건축">
+      </div>
+      <div>
+        <label class="field-label" for="headPhone">행정전화번호</label>
+        <input class="field-input" id="headPhone" placeholder="031-940-0000">
+      </div>
+    </div>
+    <div class="field-group">
+      <label class="field-label">과장 사진</label>
+      <div class="photo-upload">
+        <div class="photo-preview" id="headPhotoPreview"></div>
+        <label class="photo-btn" for="headPhotoFile">사진 선택</label>
+        <input type="file" id="headPhotoFile" accept="image/*">
+        <button class="photo-btn" type="button" id="headPhotoClear">제거</button>
+      </div>
+    </div>
 
+    <hr class="divider">
+
+    <!-- 1) 팀 만들기 -->
+    <div class="list-title">1) 팀 만들기 (순서대로)</div>
+    <div class="field-group">
+      <label class="field-label" for="teamNameInput">팀명</label>
+      <input class="field-input" id="teamNameInput" placeholder="예: 건축신고팀">
+    </div>
+    <button class="btn-primary" id="addTeamBtn">+ 팀 추가</button>
+    <button class="btn-secondary" id="cancelTeamEditBtn" style="display:none;">팀명 수정 취소</button>
+    <div id="teamList" style="margin-top:12px;"></div>
+
+    <hr class="divider">
+
+    <!-- 2) 팀장·팀원 추가 -->
+    <div class="list-title">2) 팀장 · 팀원 추가</div>
     <div id="editFormArea">
 
     <div class="field-group">
-      <label class="field-label">직급</label>
-      <select class="field-select" id="pRole">
-        <option value="과장">과장</option>
+      <label class="field-label" for="mTeam">소속 팀</label>
+      <select class="field-select" id="mTeam"></select>
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="mRole">직급</label>
+      <select class="field-select" id="mRole">
         <option value="팀장">팀장</option>
         <option value="팀원">팀원</option>
       </select>
     </div>
 
-    <div class="field-group" id="teamNameGroup">
-      <label class="field-label">소속 팀명 (팀장/팀원만 입력)</label>
-      <input class="field-input" id="pTeam" placeholder="예: 건축신고팀">
-    </div>
-
     <div class="row-2 field-group">
       <div>
-        <label class="field-label">이름</label>
-        <input class="field-input" id="pName" placeholder="홍길동">
+        <label class="field-label" for="mName">이름</label>
+        <input class="field-input" id="mName" placeholder="홍길동">
       </div>
       <div>
-        <label class="field-label">행정전화번호</label>
-        <input class="field-input" id="pPhone" placeholder="031-940-0000">
+        <label class="field-label" for="mPhone">행정전화번호</label>
+        <input class="field-input" id="mPhone" placeholder="031-940-0000">
       </div>
     </div>
 
-    <div class="field-group" id="dongGroup">
-      <label class="field-label">담당 동/읍/면 (쉼표로 구분, 팀원만)</label>
-      <input class="field-input" id="pDong" placeholder="예: 금촌동, 조리읍">
+    <div class="field-group" id="mDongGroup">
+      <label class="field-label" for="mDong">담당 동/읍/면 (쉼표로 구분, 팀원만)</label>
+      <input class="field-input" id="mDong" placeholder="예: 금촌동, 조리읍">
     </div>
 
     <div class="field-group">
       <label class="field-label">사진</label>
       <div class="photo-upload">
-        <div class="photo-preview" id="photoPreview"></div>
-        <label class="photo-btn" for="photoFile">사진 선택</label>
-        <input type="file" id="photoFile" accept="image/*">
+        <div class="photo-preview" id="mPhotoPreview"></div>
+        <label class="photo-btn" for="mPhotoFile">사진 선택</label>
+        <input type="file" id="mPhotoFile" accept="image/*">
       </div>
     </div>
 
-    <button class="btn-primary" id="saveBtn">+ 조직도에 추가</button>
-    <button class="btn-secondary" id="cancelEditBtn" style="display:none;">수정 취소</button>
+    <button class="btn-primary" id="saveMemberBtn">+ 조직도에 추가</button>
+    <button class="btn-secondary" id="cancelMemberEditBtn" style="display:none;">수정 취소</button>
     </div>
 
     <hr class="divider">
 
     <div class="list-title">현재 구성원 (<span id="countLabel">0</span>명)</div>
     <div id="personList"></div>
+    <div id="warnArea" class="warn-note" style="display:none;"></div>
+    <button class="btn-secondary" id="resetAllBtn">🗑 전체 초기화</button>
 
     <hr class="divider">
 
@@ -512,6 +571,7 @@
     </div>
     <input type="file" id="importJsonFile" accept="application/json">
     <button class="btn-primary" id="exportPngBtn" style="margin-top:14px;">🖼 조직도 이미지로 저장</button>
+    <button class="btn-primary" id="printBtn" style="margin-top:8px;">🖨 A4로 출력(인쇄)</button>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -522,11 +582,9 @@
       <div class="chart-header">
         <div class="chart-eyebrow">Paju City Hall · Organization Chart</div>
         <div class="chart-dept-name" id="chartDeptName">허가3과</div>
-        <div class="chart-updated" id="chartUpdated">최종 수정: -</div>
       </div>
       <div id="chartBody"></div>
       <div class="footer-strip">
-        <span>본 조직도는 인사발령 기준 자동 생성되었습니다.</span>
         <span id="chartMeta"></span>
       </div>
     </div>
@@ -534,54 +592,115 @@
 </div>
 
 <script>
-let people = [
-  { id: 1, role: '과장', team: '', name: '김건축', phone: '031-940-1001', dong: [], photo: '' },
-  { id: 2, role: '팀장', team: '건축신고팀', name: '박기준', phone: '031-940-1011', dong: [], photo: '' },
-  { id: 3, role: '팀원', team: '건축신고팀', name: '이형욱', phone: '031-940-1012', dong: ['금촌동','조리읍'], photo: '' },
-  { id: 4, role: '팀원', team: '건축신고팀', name: '최민수', phone: '031-940-1013', dong: ['교하동'], photo: '' },
-  { id: 5, role: '팀장', team: '건축인허가팀', name: '정도시', phone: '031-940-1021', dong: [], photo: '' },
-  { id: 6, role: '팀원', team: '건축인허가팀', name: '오하나', phone: '031-940-1022', dong: ['운정1동','운정2동'], photo: '' },
+// ===== 데이터 (팀 중심 구조) =====
+// head: 과장(1명), teams: 순서 있는 팀 목록, members: 팀 소속 구성원
+let head = { name: '김건축', phone: '031-940-1001', photo: '' };
+let teams = [
+  { id: 1, name: '건축신고팀' },
+  { id: 2, name: '건축인허가팀' },
 ];
-let nextId = 7;
-let editingId = null;
-let currentPhoto = '';
+let members = [
+  { id: 1, teamId: 1, role: '팀장', name: '박기준', phone: '031-940-1011', dong: [], photo: '' },
+  { id: 2, teamId: 1, role: '팀원', name: '이형욱', phone: '031-940-1012', dong: ['금촌동','조리읍'], photo: '' },
+  { id: 3, teamId: 1, role: '팀원', name: '최민수', phone: '031-940-1013', dong: ['교하동'], photo: '' },
+  { id: 4, teamId: 2, role: '팀장', name: '정도시', phone: '031-940-1021', dong: [], photo: '' },
+  { id: 5, teamId: 2, role: '팀원', name: '오하나', phone: '031-940-1022', dong: ['운정1동','운정2동'], photo: '' },
+];
+let nextTeamId = 3;
+let nextMemberId = 6;
+
+let editingTeamId = null;
+let editingMemberId = null;
+let memberPhoto = '';           // 구성원 입력 폼의 현재 사진
+let pendingDeleteId = null;
+let pendingDeleteTimer = null;
 
 const $ = (id) => document.getElementById(id);
 
-function updateRoleFieldVisibility() {
-  const role = $('pRole').value;
-  $('teamNameGroup').style.display = role === '과장' ? 'none' : 'block';
-  $('dongGroup').style.display = role === '팀원' ? 'block' : 'none';
+// HTML 컨텍스트 삽입 시 XSS 방지
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
-$('pRole').addEventListener('change', updateRoleFieldVisibility);
-updateRoleFieldVisibility();
 
-$('photoFile').addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    currentPhoto = ev.target.result;
-    $('photoPreview').style.backgroundImage = `url(${currentPhoto})`;
+// 사진 URL 검증: 업로드 이미지(data:image;base64) 또는 http(s)만 허용,
+// CSS url() 컨텍스트를 깨는 문자는 제거
+function safePhoto(p) {
+  if (typeof p !== 'string') return '';
+  const s = p.trim();
+  if (!/^(data:image\/(png|jpe?g|gif|webp|bmp|svg\+xml);base64,|https?:\/\/)/i.test(s)) return '';
+  return s.replace(/["'()\\\s<>]/g, '');
+}
+
+// 업로드 이미지를 정사각 축소 후 JPEG로 압축 (저장/JSON 용량 절감)
+function resizePhoto(dataUrl, maxSize) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      try { resolve(canvas.toDataURL('image/jpeg', 0.85)); }
+      catch (e) { resolve(dataUrl); }
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+// 외부 데이터(불러오기/localStorage)를 안전한 구조로 정규화
+function normalizeState(data) {
+  const h = (data && data.head) || {};
+  head = {
+    name: String(h.name == null ? '' : h.name).trim(),
+    phone: String(h.phone == null ? '' : h.phone).trim(),
+    photo: safePhoto(h.photo),
   };
-  reader.readAsDataURL(file);
-});
-
-function resetForm() {
-  $('pRole').value = '과장';
-  $('pTeam').value = '';
-  $('pName').value = '';
-  $('pPhone').value = '';
-  $('pDong').value = '';
-  $('photoPreview').style.backgroundImage = '';
-  currentPhoto = '';
-  editingId = null;
-  $('saveBtn').textContent = '+ 조직도에 추가';
-  $('cancelEditBtn').style.display = 'none';
-  updateRoleFieldVisibility();
+  teams = Array.isArray(data && data.teams) ? data.teams.map((t, i) => ({
+    id: Number.isFinite(Number(t && t.id)) ? Number(t.id) : Date.now() + i,
+    name: String(t && t.name != null ? t.name : '').trim(),
+  })).filter(t => t.name) : [];
+  const teamIds = new Set(teams.map(t => t.id));
+  members = Array.isArray(data && data.members) ? data.members.map((m, i) => {
+    const role = m && m.role === '팀장' ? '팀장' : '팀원';
+    return {
+      id: Number.isFinite(Number(m && m.id)) ? Number(m.id) : Date.now() + 1000 + i,
+      teamId: Number(m && m.teamId),
+      role,
+      name: String(m && m.name != null ? m.name : '').trim(),
+      phone: String(m && m.phone != null ? m.phone : '').trim(),
+      dong: role === '팀원' && Array.isArray(m && m.dong)
+        ? m.dong.map(d => String(d).trim()).filter(Boolean) : [],
+      photo: safePhoto(m && m.photo),
+    };
+  }).filter(m => teamIds.has(m.teamId)) : [];
+  nextTeamId = teams.reduce((a, t) => Math.max(a, t.id), 0) + 1;
+  nextMemberId = members.reduce((a, m) => Math.max(a, m.id), 0) + 1;
 }
 
-$('cancelEditBtn').addEventListener('click', resetForm);
+// ===== localStorage 자동 저장 / 복원 =====
+const STORAGE_KEY = 'pajuOrgChart_v2';
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      deptName: $('deptName').value, head, teams, members,
+    }));
+  } catch (e) { /* 용량 초과 등은 무시 */ }
+}
+function restoreState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (!data || typeof data !== 'object') return;
+    if (typeof data.deptName === 'string') $('deptName').value = data.deptName;
+    normalizeState(data);
+  } catch (e) { /* 손상된 저장값은 무시 */ }
+}
 
 function showToast(message, danger) {
   const toast = $('toast');
@@ -589,101 +708,6 @@ function showToast(message, danger) {
   toast.className = 'toast show' + (danger ? ' toast-danger' : '');
   clearTimeout(showToast._t);
   showToast._t = setTimeout(() => { toast.className = 'toast'; }, 2800);
-}
-
-$('saveBtn').addEventListener('click', () => {
-  const role = $('pRole').value;
-  const name = $('pName').value.trim();
-  if (!name) { showToast('이름을 입력해주세요.', true); return; }
-  const entry = {
-    id: editingId || nextId++,
-    role,
-    team: role === '과장' ? '' : $('pTeam').value.trim(),
-    name,
-    phone: $('pPhone').value.trim(),
-    dong: role === '팀원' ? $('pDong').value.split(',').map(s => s.trim()).filter(Boolean) : [],
-    photo: currentPhoto,
-  };
-  if (editingId) {
-    const idx = people.findIndex(p => p.id === editingId);
-    // 사진을 새로 선택하지 않았으면 기존 사진 유지
-    if (!currentPhoto) entry.photo = people[idx].photo;
-    people[idx] = entry;
-  } else {
-    people.push(entry);
-  }
-  resetForm();
-  render();
-});
-
-function editPerson(id) {
-  const p = people.find(x => x.id === id);
-  if (!p) return;
-  if (pendingDeleteId !== null) { pendingDeleteId = null; clearTimeout(pendingDeleteTimer); }
-  editingId = id;
-  $('pRole').value = p.role;
-  $('pTeam').value = p.team;
-  $('pName').value = p.name;
-  $('pPhone').value = p.phone;
-  $('pDong').value = p.dong.join(', ');
-  currentPhoto = p.photo;
-  $('photoPreview').style.backgroundImage = p.photo ? `url(${p.photo})` : '';
-  $('saveBtn').textContent = '✓ 수정 완료';
-  $('cancelEditBtn').style.display = 'block';
-  updateRoleFieldVisibility();
-
-  const panel = $('panel');
-  panel.scrollTo({ top: 0, behavior: 'smooth' });
-  const formArea = $('editFormArea');
-  formArea.classList.add('editing-highlight');
-  setTimeout(() => formArea.classList.remove('editing-highlight'), 1400);
-}
-
-let pendingDeleteId = null;
-let pendingDeleteTimer = null;
-
-function deletePerson(id) {
-  if (pendingDeleteId === id) {
-    // 두 번째 클릭 -> 실제 삭제
-    clearTimeout(pendingDeleteTimer);
-    pendingDeleteId = null;
-    const target = people.find(p => p.id === id);
-    people = people.filter(p => p.id !== id);
-    render();
-    if (target) showToast(`'${target.name}' 삭제되었습니다.`);
-    return;
-  }
-  // 첫 번째 클릭 -> 확인 대기 상태로 전환
-  pendingDeleteId = id;
-  renderPersonList();
-  showToast('한 번 더 누르면 삭제됩니다.', true);
-  clearTimeout(pendingDeleteTimer);
-  pendingDeleteTimer = setTimeout(() => {
-    pendingDeleteId = null;
-    renderPersonList();
-  }, 3000);
-}
-
-function renderPersonList() {
-  const wrap = $('personList');
-  wrap.innerHTML = '';
-  $('countLabel').textContent = people.length;
-  people.forEach(p => {
-    const row = document.createElement('div');
-    row.className = 'person-row';
-    const isPending = pendingDeleteId === p.id;
-    row.innerHTML = `
-      <div class="thumb" style="background-image:url('${p.photo}')"></div>
-      <div class="meta">
-        <div class="nm">${p.name}</div>
-        <div class="rl">${p.role}${p.team ? ' · ' + p.team : ''}</div>
-      </div>
-      <div class="row-actions">
-        <button onclick="editPerson(${p.id})" title="수정">✎</button>
-        <button onclick="deletePerson(${p.id})" title="${isPending ? '한번 더 누르면 삭제' : '삭제'}" class="${isPending ? 'delete-confirm-btn' : ''}">${isPending ? '삭제확인' : '✕'}</button>
-      </div>`;
-    wrap.appendChild(row);
-  });
 }
 
 const TEAM_COLORS = ['#2f6f4f', '#6a4c93', '#1f6f78', '#9c4b3e', '#8a6d1f', '#3d5a80'];
@@ -694,70 +718,342 @@ function teamColor(team) {
 }
 
 function avatarStyle(photo, extra) {
-  const bg = photo ? `background-image:url('${photo}');` : '';
+  const sp = safePhoto(photo);
+  const bg = sp ? `background-image:url('${sp}');` : '';
   return `style="${extra || ''}${bg}"`;
+}
+
+// ===== 과장 (head) =====
+function syncHeadFields() {
+  $('headName').value = head.name;
+  $('headPhone').value = head.phone;
+  $('headPhotoPreview').style.backgroundImage = head.photo ? `url('${head.photo}')` : '';
+}
+$('headName').addEventListener('input', () => { head.name = $('headName').value; renderChart(); saveState(); });
+$('headPhone').addEventListener('input', () => { head.phone = $('headPhone').value; renderChart(); saveState(); });
+$('headPhotoFile').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    head.photo = await resizePhoto(ev.target.result, 256);
+    syncHeadFields(); renderChart(); saveState();
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+});
+$('headPhotoClear').addEventListener('click', () => {
+  head.photo = ''; syncHeadFields(); renderChart(); saveState();
+});
+
+// ===== 팀 관리 =====
+function renderTeamList() {
+  const wrap = $('teamList');
+  wrap.innerHTML = '';
+  if (!teams.length) {
+    wrap.innerHTML = '<div class="hint-note">아직 팀이 없습니다. 팀을 먼저 추가하세요.</div>';
+    return;
+  }
+  teams.forEach((t, i) => {
+    const color = teamColor(t.name);
+    const cnt = members.filter(m => m.teamId === t.id).length;
+    const row = document.createElement('div');
+    row.className = 'person-row';
+    row.innerHTML = `
+      <span class="team-dot" style="background:${color};margin-left:4px;"></span>
+      <div class="meta">
+        <div class="nm">${esc(t.name)}</div>
+        <div class="rl">${cnt}명</div>
+      </div>
+      <div class="row-actions">
+        <button onclick="moveTeam(${t.id}, -1)" title="위로" aria-label="${esc(t.name)} 위로 이동" ${i === 0 ? 'disabled' : ''}>▲</button>
+        <button onclick="moveTeam(${t.id}, 1)" title="아래로" aria-label="${esc(t.name)} 아래로 이동" ${i === teams.length - 1 ? 'disabled' : ''}>▼</button>
+        <button onclick="editTeam(${t.id})" title="팀명 수정" aria-label="${esc(t.name)} 팀명 수정">✎</button>
+        <button onclick="deleteTeam(${t.id})" title="팀 삭제" aria-label="${esc(t.name)} 삭제">✕</button>
+      </div>`;
+    wrap.appendChild(row);
+  });
+}
+
+$('addTeamBtn').addEventListener('click', () => {
+  const name = $('teamNameInput').value.trim();
+  if (!name) { showToast('팀명을 입력해주세요.', true); return; }
+  if (editingTeamId) {
+    const t = teams.find(x => x.id === editingTeamId);
+    if (teams.some(x => x.id !== editingTeamId && x.name === name)) {
+      showToast('이미 있는 팀명입니다.', true); return;
+    }
+    if (t) t.name = name;
+    cancelTeamEdit();
+  } else {
+    if (teams.some(t => t.name === name)) { showToast('이미 있는 팀명입니다.', true); return; }
+    teams.push({ id: nextTeamId++, name });
+  }
+  $('teamNameInput').value = '';
+  render();
+});
+
+function editTeam(id) {
+  const t = teams.find(x => x.id === id);
+  if (!t) return;
+  editingTeamId = id;
+  $('teamNameInput').value = t.name;
+  $('teamNameInput').focus();
+  $('addTeamBtn').textContent = '✓ 팀명 수정';
+  $('cancelTeamEditBtn').style.display = 'block';
+}
+function cancelTeamEdit() {
+  editingTeamId = null;
+  $('teamNameInput').value = '';
+  $('addTeamBtn').textContent = '+ 팀 추가';
+  $('cancelTeamEditBtn').style.display = 'none';
+}
+$('cancelTeamEditBtn').addEventListener('click', cancelTeamEdit);
+
+function moveTeam(id, dir) {
+  const idx = teams.findIndex(t => t.id === id);
+  if (idx === -1) return;
+  const target = idx + dir;
+  if (target < 0 || target >= teams.length) return;
+  [teams[idx], teams[target]] = [teams[target], teams[idx]];
+  render();
+}
+
+function deleteTeam(id) {
+  const t = teams.find(x => x.id === id);
+  if (!t) return;
+  const cnt = members.filter(m => m.teamId === id).length;
+  const msg = cnt
+    ? `'${t.name}' 팀과 소속 구성원 ${cnt}명을 모두 삭제할까요?`
+    : `'${t.name}' 팀을 삭제할까요?`;
+  if (!confirm(msg + '\n되돌릴 수 없습니다.')) return;
+  teams = teams.filter(x => x.id !== id);
+  members = members.filter(m => m.teamId !== id);
+  if (editingTeamId === id) cancelTeamEdit();
+  render();
+  showToast(`'${t.name}' 팀이 삭제되었습니다.`);
+}
+
+// ===== 구성원 (팀장/팀원) =====
+function renderMemberTeamOptions() {
+  const sel = $('mTeam');
+  const prev = sel.value;
+  sel.innerHTML = teams.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
+  if (teams.some(t => String(t.id) === prev)) sel.value = prev;
+}
+
+function updateMemberRoleVisibility() {
+  $('mDongGroup').style.display = $('mRole').value === '팀원' ? 'block' : 'none';
+}
+$('mRole').addEventListener('change', updateMemberRoleVisibility);
+
+$('mPhotoFile').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    memberPhoto = await resizePhoto(ev.target.result, 256);
+    $('mPhotoPreview').style.backgroundImage = `url('${memberPhoto}')`;
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+});
+
+function resetMemberForm() {
+  $('mRole').value = '팀장';
+  $('mName').value = '';
+  $('mPhone').value = '';
+  $('mDong').value = '';
+  $('mPhotoPreview').style.backgroundImage = '';
+  memberPhoto = '';
+  editingMemberId = null;
+  $('saveMemberBtn').textContent = '+ 조직도에 추가';
+  $('cancelMemberEditBtn').style.display = 'none';
+  updateMemberRoleVisibility();
+}
+$('cancelMemberEditBtn').addEventListener('click', resetMemberForm);
+
+$('saveMemberBtn').addEventListener('click', () => {
+  if (!teams.length) { showToast('먼저 팀을 추가해주세요.', true); return; }
+  const name = $('mName').value.trim();
+  if (!name) { showToast('이름을 입력해주세요.', true); return; }
+  const role = $('mRole').value;
+  const entry = {
+    id: editingMemberId || nextMemberId++,
+    teamId: Number($('mTeam').value),
+    role,
+    name,
+    phone: $('mPhone').value.trim(),
+    dong: role === '팀원' ? $('mDong').value.split(',').map(s => s.trim()).filter(Boolean) : [],
+    photo: memberPhoto,
+  };
+  const idx = editingMemberId ? members.findIndex(m => m.id === editingMemberId) : -1;
+  if (idx !== -1) {
+    // 사진을 새로 선택하지 않았으면 기존 사진 유지
+    if (!memberPhoto) entry.photo = members[idx].photo;
+    members[idx] = entry;
+  } else {
+    // 신규이거나, 편집 중 목록에서 삭제된 경우 새로 추가
+    members.push(entry);
+  }
+  resetMemberForm();
+  render();
+});
+
+function editMember(id) {
+  const m = members.find(x => x.id === id);
+  if (!m) return;
+  if (pendingDeleteId !== null) { pendingDeleteId = null; clearTimeout(pendingDeleteTimer); }
+  editingMemberId = id;
+  renderMemberTeamOptions();
+  $('mTeam').value = String(m.teamId);
+  $('mRole').value = m.role;
+  $('mName').value = m.name;
+  $('mPhone').value = m.phone;
+  $('mDong').value = m.dong.join(', ');
+  memberPhoto = m.photo;
+  $('mPhotoPreview').style.backgroundImage = m.photo ? `url('${m.photo}')` : '';
+  $('saveMemberBtn').textContent = '✓ 수정 완료';
+  $('cancelMemberEditBtn').style.display = 'block';
+  updateMemberRoleVisibility();
+
+  const formArea = $('editFormArea');
+  formArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  formArea.classList.add('editing-highlight');
+  setTimeout(() => formArea.classList.remove('editing-highlight'), 1400);
+}
+
+function deleteMember(id) {
+  if (pendingDeleteId === id) {
+    clearTimeout(pendingDeleteTimer);
+    pendingDeleteId = null;
+    const target = members.find(m => m.id === id);
+    members = members.filter(m => m.id !== id);
+    render();
+    if (target) showToast(`'${target.name}' 삭제되었습니다.`);
+    return;
+  }
+  pendingDeleteId = id;
+  renderPersonList();
+  showToast('한 번 더 누르면 삭제됩니다.', true);
+  clearTimeout(pendingDeleteTimer);
+  pendingDeleteTimer = setTimeout(() => {
+    pendingDeleteId = null;
+    renderPersonList();
+  }, 3000);
+}
+
+function moveMember(id, dir) {
+  const idx = members.findIndex(m => m.id === id);
+  if (idx === -1) return;
+  const target = idx + dir;
+  if (target < 0 || target >= members.length) return;
+  [members[idx], members[target]] = [members[target], members[idx]];
+  if (pendingDeleteId !== null) { pendingDeleteId = null; clearTimeout(pendingDeleteTimer); }
+  render();
+}
+
+function renderPersonList() {
+  const wrap = $('personList');
+  wrap.innerHTML = '';
+  $('countLabel').textContent = members.length;
+  if (!members.length) {
+    wrap.innerHTML = '<div class="hint-note">아직 구성원이 없습니다. 팀을 만든 뒤 추가하세요.</div>';
+    return;
+  }
+  const teamName = (tid) => { const t = teams.find(x => x.id === tid); return t ? t.name : '(삭제된 팀)'; };
+  members.forEach((m, i) => {
+    const row = document.createElement('div');
+    row.className = 'person-row';
+    const isPending = pendingDeleteId === m.id;
+    const sp = safePhoto(m.photo);
+    row.innerHTML = `
+      <div class="thumb" style="${sp ? `background-image:url('${sp}')` : ''}"></div>
+      <div class="meta">
+        <div class="nm">${esc(m.name)}</div>
+        <div class="rl">${esc(m.role)} · ${esc(teamName(m.teamId))}</div>
+      </div>
+      <div class="row-actions">
+        <button onclick="moveMember(${m.id}, -1)" title="위로" aria-label="${esc(m.name)} 위로 이동" ${i === 0 ? 'disabled' : ''}>▲</button>
+        <button onclick="moveMember(${m.id}, 1)" title="아래로" aria-label="${esc(m.name)} 아래로 이동" ${i === members.length - 1 ? 'disabled' : ''}>▼</button>
+        <button onclick="editMember(${m.id})" title="수정" aria-label="${esc(m.name)} 수정">✎</button>
+        <button onclick="deleteMember(${m.id})" title="${isPending ? '한번 더 누르면 삭제' : '삭제'}" aria-label="${esc(m.name)} 삭제" class="${isPending ? 'delete-confirm-btn' : ''}">${isPending ? '삭제확인' : '✕'}</button>
+      </div>`;
+    wrap.appendChild(row);
+  });
+}
+
+// 조직도에 문제가 될 수 있는 상황을 좌측 패널에 경고 (이미지에는 미포함)
+function renderWarnings() {
+  const w = $('warnArea');
+  const msgs = [];
+  teams.forEach(t => {
+    const leads = members.filter(m => m.role === '팀장' && m.teamId === t.id);
+    if (leads.length > 1) {
+      msgs.push(`'${t.name}' 팀에 팀장이 ${leads.length}명입니다. 조직도에는 1명만 표시됩니다.`);
+    }
+  });
+  if (!msgs.length) { w.style.display = 'none'; w.innerHTML = ''; return; }
+  w.style.display = 'block';
+  w.innerHTML = msgs.map(m => `<div>⚠ ${esc(m)}</div>`).join('');
 }
 
 function renderChart() {
   const deptName = $('deptName').value.trim() || '과 이름 미입력';
   $('chartDeptName').textContent = deptName;
-  const now = new Date();
-  $('chartUpdated').textContent = `최종 수정: ${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')}`;
-  $('chartMeta').textContent = `총 인원 ${people.length}명`;
+  const hasHead = !!head.name.trim();
+  $('chartMeta').textContent = `총 인원 ${members.length + (hasHead ? 1 : 0)}명`;
 
-  const head = people.find(p => p.role === '과장');
-  const teamNames = [...new Set(people.filter(p => p.role !== '과장' && p.team).map(p => p.team))];
-
-  if (!head && teamNames.length === 0) {
-    $('chartBody').innerHTML = `<div class="empty-note">좌측 패널에서 구성원을 추가하면<br>여기에 조직도가 자동으로 그려집니다.</div>`;
+  if (!hasHead && teams.length === 0) {
+    $('chartBody').innerHTML = `<div class="empty-note">좌측 패널에서 과장과 팀을 추가하면<br>여기에 조직도가 자동으로 그려집니다.</div>`;
     return;
   }
 
   let html = '';
 
-  if (head) {
+  if (hasHead) {
     html += `
       <div class="head-row">
         <div class="card-person card-head">
           <div class="p-role role-과장">과장</div>
-          <div class="p-name" title="${head.name}">${head.name}</div>
-          <div class="p-phone" title="${head.phone || ''}">${head.phone || '-'}</div>
+          <div class="p-name" title="${esc(head.name)}">${esc(head.name)}</div>
+          <div class="p-phone" title="${esc(head.phone || '')}">${esc(head.phone) || '-'}</div>
           <div class="avatar" ${avatarStyle(head.photo)}></div>
         </div>
       </div>`;
-    if (teamNames.length) html += `<div class="connector-v"></div><div class="h-bridge"></div>`;
+    if (teams.length) html += `<div class="connector-v"></div><div class="h-bridge"></div>`;
   }
 
-  if (teamNames.length) {
+  if (teams.length) {
     html += `<div class="teams-row">`;
-    teamNames.forEach(team => {
-      const color = teamColor(team);
-      const lead = people.find(p => p.role === '팀장' && p.team === team);
-      const members = people.filter(p => p.role === '팀원' && p.team === team);
+    teams.forEach(team => {
+      const color = teamColor(team.name);
+      const lead = members.find(m => m.role === '팀장' && m.teamId === team.id);
+      const mem = members.filter(m => m.role === '팀원' && m.teamId === team.id);
       html += `<div class="team-col" style="border-top:3px solid ${color};padding-top:16px;">`;
-      html += `<div class="team-label" style="color:${color};" title="${team}"><span class="team-dot" style="background:${color};"></span>${team}</div>`;
+      html += `<div class="team-label" style="color:${color};" title="${esc(team.name)}"><span class="team-dot" style="background:${color};"></span>${esc(team.name)}</div>`;
       if (lead) {
         html += `
           <div class="card-person card-lead" style="border-color:${color};border-width:1.5px;">
-            <div class="p-name" title="${lead.name}">${lead.name}</div>
-            <div class="p-phone" title="${lead.phone || ''}">${lead.phone || '-'}</div>
+            <div class="p-name" title="${esc(lead.name)}">${esc(lead.name)}</div>
+            <div class="p-phone" title="${esc(lead.phone || '')}">${esc(lead.phone) || '-'}</div>
             <div class="avatar" ${avatarStyle(lead.photo)}></div>
           </div>`;
       } else {
         html += `
           <div class="card-person card-lead" style="border-style:dashed;color:var(--muted);">
-            <div class="p-name" style="color:var(--muted)">공석</div>
+            <div class="p-name" style="color:var(--muted)">팀장 공석</div>
           </div>`;
       }
-      if (members.length) {
+      if (mem.length) {
         html += `<div class="lead-connector" style="background:${color};"></div><div class="members-list">`;
-        members.forEach(m => {
+        mem.forEach(m => {
           html += `
             <div class="card-person card-member" style="border-left:3px solid ${color};">
-              <div class="p-name" style="font-size:13.5px;" title="${m.name}">${m.name}</div>
-              <div class="p-phone" title="${m.phone || ''}">${m.phone || '-'}</div>
+              <div class="p-name" style="font-size:13.5px;" title="${esc(m.name)}">${esc(m.name)}</div>
+              <div class="p-phone" title="${esc(m.phone || '')}">${esc(m.phone) || '-'}</div>
               <div class="avatar" ${avatarStyle(m.photo, 'width:44px;height:44px;margin:7px auto;')}></div>
-              ${m.dong.length ? `<div class="p-dong">${m.dong.map(d => `<span class="dong-tag" style="border-color:${color};color:${color};">${d}</span>`).join('')}</div>` : ''}
+              ${m.dong.length ? `<div class="p-dong">${m.dong.map(d => `<span class="dong-tag" style="border-color:${color};color:${color};">${esc(d)}</span>`).join('')}</div>` : ''}
             </div>`;
         });
         html += `</div>`;
@@ -771,14 +1067,36 @@ function renderChart() {
 }
 
 function render() {
+  renderTeamList();
+  renderMemberTeamOptions();
   renderPersonList();
   renderChart();
+  renderWarnings();
+  saveState();
 }
 
-$('deptName').addEventListener('input', renderChart);
+$('deptName').addEventListener('input', () => { renderChart(); saveState(); });
+
+// ===== 저장 / 불러오기 / 초기화 / 이미지 =====
+$('resetAllBtn').addEventListener('click', () => {
+  if (!teams.length && !members.length && !head.name.trim()) {
+    showToast('초기화할 내용이 없습니다.', true); return;
+  }
+  if (!confirm('전체 내용(과장 · 팀 · 구성원)을 모두 삭제할까요?\n되돌릴 수 없습니다.')) return;
+  head = { name: '', phone: '', photo: '' };
+  teams = [];
+  members = [];
+  pendingDeleteId = null;
+  clearTimeout(pendingDeleteTimer);
+  cancelTeamEdit();
+  resetMemberForm();
+  syncHeadFields();
+  render();
+  showToast('전체 초기화되었습니다.');
+});
 
 $('exportJsonBtn').addEventListener('click', () => {
-  const data = { deptName: $('deptName').value, people };
+  const data = { deptName: $('deptName').value, head, teams, members };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -796,12 +1114,22 @@ $('importJsonFile').addEventListener('change', (e) => {
   reader.onload = (ev) => {
     try {
       const data = JSON.parse(ev.target.result);
-      $('deptName').value = data.deptName || '';
-      people = data.people || [];
-      nextId = Math.max(0, ...people.map(p => p.id)) + 1;
+      if (!data || typeof data !== 'object' ||
+          (!Array.isArray(data.teams) && !Array.isArray(data.members) && !data.head)) {
+        showToast('조직도 데이터 형식이 아닙니다.', true);
+        return;
+      }
+      $('deptName').value = typeof data.deptName === 'string' ? data.deptName : '';
+      normalizeState(data);
+      cancelTeamEdit();
+      resetMemberForm();
+      syncHeadFields();
       render();
+      showToast('데이터를 불러왔습니다.');
     } catch (err) {
       showToast('파일을 읽을 수 없습니다. 올바른 JSON 파일인지 확인해주세요.', true);
+    } finally {
+      e.target.value = '';
     }
   };
   reader.readAsText(file);
@@ -809,16 +1137,69 @@ $('importJsonFile').addEventListener('change', (e) => {
 
 $('exportPngBtn').addEventListener('click', () => {
   const btn = $('exportPngBtn');
+  const label = '🖼 조직도 이미지로 저장';
   btn.textContent = '생성 중...';
+  btn.disabled = true;
   html2canvas($('chart'), { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
     const link = document.createElement('a');
     link.download = `조직도_${$('deptName').value || 'export'}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
-    btn.textContent = '🖼 조직도 이미지로 저장';
+  }).catch(err => {
+    showToast('이미지 생성에 실패했습니다. 다시 시도해주세요.', true);
+  }).finally(() => {
+    btn.textContent = label;
+    btn.disabled = false;
   });
 });
 
+// 조직도 이미지를 A4 페이지에 비율 유지로 배치해 숨김 iframe에서 인쇄
+function printImageOnA4(dataUrl, wmm, hmm) {
+  const old = $('printFrame');
+  if (old) old.remove();
+  const frame = document.createElement('iframe');
+  frame.id = 'printFrame';
+  frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+  document.body.appendChild(frame);
+  const doc = frame.contentWindow.document;
+  doc.open();
+  doc.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>조직도 출력</title>
+    <style>
+      @page { size: A4 landscape; margin: 10mm; }
+      html, body { margin: 0; padding: 0; }
+      img { display: block; margin: 0 auto; width: ${wmm}mm; height: ${hmm}mm; }
+    </style></head>
+    <body><img src="${dataUrl}"></body></html>`);
+  doc.close();
+  const img = doc.querySelector('img');
+  const go = () => { frame.contentWindow.focus(); frame.contentWindow.print(); };
+  if (img.complete) setTimeout(go, 50); else img.onload = () => setTimeout(go, 50);
+}
+
+$('printBtn').addEventListener('click', () => {
+  const btn = $('printBtn');
+  const label = '🖨 A4로 출력(인쇄)';
+  btn.textContent = '준비 중...';
+  btn.disabled = true;
+  html2canvas($('chart'), { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
+    // A4 가로 인쇄영역(여백 10mm 제외): 277 x 190 mm 안에 비율 유지하며 맞춤
+    const pageW = 277, pageH = 190;
+    const ar = canvas.width / canvas.height;
+    let w = pageW, h = pageW / ar;
+    if (h > pageH) { h = pageH; w = pageH * ar; }
+    printImageOnA4(canvas.toDataURL('image/png'), Math.round(w * 10) / 10, Math.round(h * 10) / 10);
+  }).catch(err => {
+    showToast('출력 준비에 실패했습니다. 다시 시도해주세요.', true);
+  }).finally(() => {
+    btn.textContent = label;
+    btn.disabled = false;
+  });
+});
+
+// ===== 초기화 =====
+restoreState();
+syncHeadFields();
+updateMemberRoleVisibility();
 render();
 </script>
 
