@@ -1135,6 +1135,24 @@ function centerCardContents() {
       if (dong) dong.style.paddingLeft = shift + 'px';
     }
   });
+
+  // 김문정: 현 배치 그대로, 같은 팀 다른 팀원의 사진 왼쪽 라인에 맞춰 이동
+  const kim = [...document.querySelectorAll('#chartBody .card-member')]
+    .find(c => c.querySelector('.p-name') && c.querySelector('.p-name').textContent === '김문정');
+  if (kim) {
+    const col = kim.closest('.team-col');
+    const others = [...col.querySelectorAll('.card-member')].filter(c => c !== kim && c.querySelector('.avatar'));
+    if (others.length) {
+      const targetLeft = Math.min(...others.map(c => c.querySelector('.avatar').getBoundingClientRect().left));
+      const row = kim.querySelector('.card-row');
+      const dong = kim.querySelector('.p-dong');
+      const curPad = parseFloat((row && row.style.paddingLeft) || '0') || 0;
+      const delta = targetLeft - kim.querySelector('.avatar').getBoundingClientRect().left;
+      const newPad = Math.max(0, curPad + delta);
+      if (row) row.style.paddingLeft = newPad + 'px';
+      if (dong) dong.style.paddingLeft = newPad + 'px';
+    }
+  }
 }
 
 // 직원(팀원) 박스를 가장 큰 박스 높이에 맞춰 크기 통일
