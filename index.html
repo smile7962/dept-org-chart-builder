@@ -421,6 +421,7 @@
     margin-top: 7px;
     display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-start;
   }
+  .dong-break { flex-basis: 100%; height: 0; }   /* 4글자 이상 동지역을 아랫줄로 */
   .dong-tag {
     font-size: 10px;
     background: var(--paper-2);
@@ -726,10 +727,20 @@ function avatarStyle(photo, extra) {
   return `style="${extra || ''}${bg}"`;
 }
 
-// 행정전화번호 뒷 4자리 (과장·팀장 카드에 표시)
+// 행정전화번호 뒷 4자리 (모든 카드에 표시)
 function last4(phone) {
   const d = String(phone == null ? '' : phone).replace(/\D/g, '');
   return d.length >= 4 ? d.slice(-4) : d;
+}
+
+// 담당 동지역 태그 (4글자 이상은 아랫줄에 배치)
+function dongTags(dong, color) {
+  if (!Array.isArray(dong) || !dong.length) return '';
+  const tag = d => `<span class="dong-tag" style="border-color:${color};color:${color};">${esc(d)}</span>`;
+  const short = dong.filter(d => d.length <= 3);
+  const long = dong.filter(d => d.length >= 4);
+  const brk = (short.length && long.length) ? '<span class="dong-break"></span>' : '';
+  return `<div class="p-dong">${short.map(tag).join('')}${brk}${long.map(tag).join('')}</div>`;
 }
 
 // ===== 과장 (head) =====
@@ -1074,7 +1085,8 @@ function renderChart() {
               <div class="card-info">
                 <div class="p-name" title="${esc(m.name)}">${esc(m.name)}</div>
                 ${m.rank ? `<div class="p-rank" title="${esc(m.rank)}">${esc(m.rank)}</div>` : ''}
-                ${m.dong.length ? `<div class="p-dong">${m.dong.map(d => `<span class="dong-tag" style="border-color:${color};color:${color};">${esc(d)}</span>`).join('')}</div>` : ''}
+                <div class="p-phone" title="${esc(m.phone || '')}">${esc(last4(m.phone)) || '-'}</div>
+                ${dongTags(m.dong, color)}
               </div>
             </div>`;
         });
